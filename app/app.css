@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+/* Hide scrollbar */
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif,
+    "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+html,
+body {
+  @apply bg-white dark:bg-gray-950;
+
+  @media (prefers-color-scheme: dark) {
+    color-scheme: dark;
+  }
+}
+
+@layer utilities {
+  .scrollbar-slick {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(100, 100, 100, 0.5) transparent;
+  }
+
+  .scrollbar-slick::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  .scrollbar-slick::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar-slick::-webkit-scrollbar-thumb {
+    background-color: rgba(120, 120, 120, 0.4);
+    border-radius: 9999px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+
+  .scrollbar-slick::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(120, 120, 120, 0.7);
+  }
+
+  /* Dark mode refinement */
+  .dark .scrollbar-slick {
+    scrollbar-color: rgba(200, 200, 200, 0.4) transparent;
+  }
+
+  .dark .scrollbar-slick::-webkit-scrollbar-thumb {
+    background-color: rgba(200, 200, 200, 0.3);
+  }
+
+  .dark .scrollbar-slick::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(200, 200, 200, 0.6);
+  }
+}
