@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { redirect } from "react-router";
+import { redirect } from "react-router";import cardSound from "../assets/CardsT.mp3";
+
+
+
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SOUND ENGINE (synthetic – no external files needed)
@@ -76,6 +80,15 @@ function playSound(name: SoundName) {
         noiseBurst(0.06, 0.12, ctx, now + 0.02);
         break;
       }
+      //  case "cardPlay": {
+      //     console.log("CARD PLAY SOUND");
+        
+      //     const audio = new Audio("/sound/CardsT.mp3");
+      //     audio.volume = 1;
+      //     audio.play().catch(console.error);
+        
+      //     break;
+      //   }
       case "trickWin": {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -2216,15 +2229,15 @@ export default function CallBreakerGame() {
                              // isCardInteractable
                                // ? () => setSelectedCard(isSel ? null : card)
                                 //: undefined
-                            //}onClick={
-                                 onClick={
-                                    isCardInteractable
-                                      ? () => {
-                                          setSelectedCard(card);
-                                          humanPlay(card);
-                                        }
-                                      : undefined
-                                  }
+                            //}
+                                  onClick={
+                                     isCardInteractable
+                                       ? () => {
+                                           setSelectedCard(card);
+                                           humanPlay;
+                                         }
+                                       : undefined
+                                   }
                                                           
                             draggable={isCardInteractable}
                             onDragStart={(e) => {
@@ -2243,17 +2256,18 @@ export default function CallBreakerGame() {
               </div>
             )}
             {isYourTurn && !youHasPlayed && (
-              <div className="text-center mt-1 text-xs text-purple-400 font-semibold uppercase tracking-wider">
+              <div className="text-center mt-1 text-xs text-[#f06] font-semibold uppercase tracking-wider">
                 {selectedCard
-                  ? `${selectedCard.rank} of ${selectedCard.suit} selected — press Play Card, drag onto table, or touch-drag to table`
-                  : "Tap to select, drag (mouse) or touch-drag a card onto the table"}
+                  ? `${selectedCard.rank} of ${selectedCard.suit} selected —   Click a card to play it, or drag/touch-drag it onto the table`
+                  : "   Click a card to play it, or drag/touch-drag it onto the table"}
               </div>
             )}
           </div>
 
           {/* Action button */}
-          {!youHasPlayed && game.phase === "playing" && (
+          {/* {!youHasPlayed && game.phase === "playing" && (
             <div className="grid grid-cols-1 gap-2">
+                  ? `${selectedCard.rank} of ${selectedCard.suit} selected —   lick a card to play it, or drag/touch-drag it onto the table`
               <button
                 onClick={humanPlay}
                 disabled={!isYourTurn || !selectedCard || botThinking}
@@ -2270,7 +2284,7 @@ export default function CallBreakerGame() {
                 {botThinking ? "BOT PLAYING..." : "PLAY CARD"}
               </button>
             </div>
-          )}
+          )} */}
 
           {/* New Game / Exit */}
           <div className="grid grid-cols-2 gap-2 pb-2">
