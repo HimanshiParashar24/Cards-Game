@@ -1,8 +1,13 @@
+
+
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { redirect } from "react-router";import cardSound from "../assets/CardsT.mp3";
+import { redirect } from "react-router";
+//import WinEffect from "./WinEffect";
+import WinEffect from "./WinEffect";
+
 
 
 
@@ -66,42 +71,40 @@ function playSound(name: SoundName) {
     const now = ctx.currentTime;
 
     switch (name) {
-      case "cardPlay": {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "square";
-        osc.frequency.setValueAtTime(600, now);
-        osc.frequency.exponentialRampToValueAtTime(300, now + 0.05);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.08);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.08);
-        noiseBurst(0.06, 0.12, ctx, now + 0.02);
+      
+        case "cardPlay": {
+        const audio = new Audio("/CardsT.mp3");
+        audio.onloadeddata = () => {};
+        audio.onerror = () => {};
+          audio.play()
+          .then(() => console.log("audio playing"))
+          .catch((err) => console.log("play failed", err));
+      
         break;
       }
-      //  case "cardPlay": {
-      //     console.log("CARD PLAY SOUND");
-        
-      //     const audio = new Audio("/sound/CardsT.mp3");
-      //     audio.volume = 1;
-      //     audio.play().catch(console.error);
-        
-      //     break;
-      //   }
+
+      // case "trickWin": {
+      //   const osc = ctx.createOscillator();
+      //   const gain = ctx.createGain();
+      //   osc.type = "triangle";
+      //   osc.frequency.setValueAtTime(500, now);
+      //   osc.frequency.exponentialRampToValueAtTime(1200, now + 0.2);
+      //   gain.gain.setValueAtTime(0.25, now);
+      //   gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      //   osc.connect(gain).connect(ctx.destination);
+      //   osc.start(now);
+      //   osc.stop(now + 0.3);
+      //   break;
+      // }
       case "trickWin": {
-        const osc = ctx.createOscillator();
-        const gain = ctx.createGain();
-        osc.type = "triangle";
-        osc.frequency.setValueAtTime(500, now);
-        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.2);
-        gain.gain.setValueAtTime(0.25, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-        osc.connect(gain).connect(ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.3);
+        console.log("NEW TRICK WIN SOUND");
+        const audio = new Audio("/sound/TrickW.wav");
+        audio.volume = 0.8;
+        audio.play().catch(console.error);
         break;
       }
+
+
       case "bidPlaced": {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
@@ -128,22 +131,28 @@ function playSound(name: SoundName) {
         osc.stop(now + 0.4);
         break;
       }
-      case "gameWin": {
-        const notes = [523.25, 659.25, 783.99, 1046.5];
-        notes.forEach((freq, i) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = "sine";
-          osc.frequency.value = freq;
-          gain.gain.setValueAtTime(0.2, now + i * 0.15);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.3);
-          osc.connect(gain).connect(ctx.destination);
-          osc.start(now + i * 0.15);
-          osc.stop(now + i * 0.15 + 0.3);
-        });
-        break;
-      }
-      case "gameLose": {
+      // case "gameWin": {
+      //   const notes = [523.25, 659.25, 783.99, 1046.5];
+      //   notes.forEach((freq, i) => {
+      //     const osc = ctx.createOscillator();
+      //     const gain = ctx.createGain();
+      //     osc.type = "sine";
+      //     osc.frequency.value = freq;
+      //     gain.gain.setValueAtTime(0.2, now + i * 0.15);
+      //     gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.3);
+      //     osc.connect(gain).connect(ctx.destination);
+      //     osc.start(now + i * 0.15);
+      //     osc.stop(now + i * 0.15 + 0.3);
+      //   });
+      //   break;
+      // }
+        case "gameWin": {
+           const audio = new Audio("/sound/WinS.wav");
+           audio.volume = 1;
+           audio.play().catch(console.error);
+           break;
+         }
+        case "gameLose": {
         const notes = [400, 350, 300];
         notes.forEach((freq, i) => {
           const osc = ctx.createOscillator();
@@ -825,7 +834,7 @@ const Avatar = ({
   const initials = name === "You" ? "YO" : name.slice(0, 2).toUpperCase();
   return (
     <div
-      className="relative flex-shrink-0"
+      className="relative shrink-0"
       style={{ width: size, height: size }}
     >
       <div
@@ -1208,6 +1217,7 @@ export default function CallBreakerGame() {
   const [botThinking, setBotThinking] = useState(false);
   const [showRoundModal, setShowRoundModal] = useState(false);
   const [showGameOverModal, setShowGameOverModal] = useState(false); // new flag for game over modal visibility
+  const [showConfetti, setShowConfetti] = useState(false);
   const [isDealing, setIsDealing] = useState(true); // start with shuffle on load
   const [dragOverTable, setDragOverTable] = useState(false);
   const [ghostCard, setGhostCard] = useState<{
@@ -1369,16 +1379,23 @@ export default function CallBreakerGame() {
   }, [game.phase]);
 
   // ── Game over sound & modal flag ─────────────────────────────────────────
-  useEffect(() => {
-    if (game.phase === "game_over") {
-      setShowGameOverModal(true);
-      if (game.gameWinnerId === "you") {
-        playSound("gameWin");
-      } else {
-        playSound("gameLose");
-      }
+ useEffect(() => {
+  if (game.phase === "game_over") {
+    setShowGameOverModal(true);
+
+    if (game.gameWinnerId === "you") {
+      playSound("gameWin");
+
+      setShowConfetti(true);
+
+      setTimeout(() => {
+        setShowConfetti(false);
+      }, 5000);
+    } else {
+      playSound("gameLose");
     }
-  }, [game.phase, game.gameWinnerId]);
+  }
+}, [game.phase, game.gameWinnerId]);
 
   // ── Shuffle sound when dealing starts ────────────────────────────────────
   useEffect(() => {
@@ -1471,6 +1488,8 @@ export default function CallBreakerGame() {
         return;
       }
 
+       console.log("cardPlay called");
+       //playSound("cardPlay");
       playSound("cardPlay");
       setSelectedCard(null);
 
@@ -1752,14 +1771,16 @@ export default function CallBreakerGame() {
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
   return (
+
     <div
-      className="min-h-screen w-full flex flex-col select-none"
-      style={{
-        background:
-        "radial-gradient(ellipse at top, #F8F9FA 0%, #E9ECEF 60%, #edede9 100%)",
-        fontFamily: "'Inter','Segoe UI',sans-serif",
-      }}
+    className="min-h-screen w-full flex flex-col select-none"
+    style={{
+      background:
+      "radial-gradient(ellipse at top, #F8F9FA 0%, #E9ECEF 60%, #edede9 100%)",
+      fontFamily: "'Inter','Segoe UI',sans-serif",
+    }}
     >
+    <WinEffect show={showConfetti} />
       {/* TOAST */}
       {toast && <Toast msg={toast.msg} type={toast.type} />}
 
@@ -1806,11 +1827,15 @@ export default function CallBreakerGame() {
             </svg>
           </button>
           <div className="flex flex-col leading-tight">
-            <span className="text-[#0077b6] text-[10px] underline uppercase tracking-widest">
-              Room ID
-            </span>
-            <span className="text-white font-bold text-sm">CB1234</span>
-            <span className="text-[#ff6700] text-xs font-semibold">
+           <div className="flex flex-row items-center gap-4">
+             <span className="text-[#0077b6] text-[12px] font-bold underline uppercase tracking-widest">
+               Room ID
+             </span>
+             <span className="text-[#ff6700] font-bold text-xs">
+               CB1234
+             </span>
+           </div>
+            <span className="text-[#76c893] text-xs font-semibold">
               ● Online: 4
             </span>
           </div>
@@ -2234,7 +2259,7 @@ export default function CallBreakerGame() {
                                      isCardInteractable
                                        ? () => {
                                            setSelectedCard(card);
-                                           humanPlay;
+                                           humanPlay();
                                          }
                                        : undefined
                                    }
@@ -2258,8 +2283,8 @@ export default function CallBreakerGame() {
             {isYourTurn && !youHasPlayed && (
               <div className="text-center mt-1 text-xs text-[#f06] font-semibold uppercase tracking-wider">
                 {selectedCard
-                  ? `${selectedCard.rank} of ${selectedCard.suit} selected —   Click a card to play it, or drag/touch-drag it onto the table`
-                  : "   Click a card to play it, or drag/touch-drag it onto the table"}
+                  ? `${selectedCard.rank} of ${selectedCard.suit} selected —   Click a card to play it, or drag it onto the table`
+                  : "   Click a card to play it, or drag it onto the table"}
               </div>
             )}
           </div>
@@ -2292,7 +2317,7 @@ export default function CallBreakerGame() {
               onClick={newGame}
               className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-white transition-all hover:brightness-110 active:scale-95"
               style={{
-                background: "linear-gradient(135deg,#6366f1,#4f46e5)",
+                background: "#1e6091",
                 boxShadow: "0 4px 14px rgba(99,102,241,0.35)",
               }}
             >
@@ -2312,7 +2337,7 @@ export default function CallBreakerGame() {
             <button
               className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-white hover:bg-white/10 transition-all active:scale-95"
               style={{
-                background: "rgba(255,255,255,0.05)",
+                background: "#76c893",
                 border: "1px solid rgba(255,255,255,0.15)",
               }}
             >
@@ -2337,7 +2362,7 @@ export default function CallBreakerGame() {
         <div
           className="w-full md:w-64 lg:w-72 flex-shrink-0 p-3 flex flex-col gap-3 overflow-y-auto"
           style={{
-            background: "rgba(0,0,0,0.28)",
+            background: "#1E293B",
             borderLeft: "1px solid rgba(255,255,255,0.07)",
           }}
         >
@@ -2345,7 +2370,7 @@ export default function CallBreakerGame() {
             Score Board
           </div>
 
-          <div className="grid grid-cols-4 text-xs text-gray-500 uppercase tracking-wider px-1">
+          <div className="grid grid-cols-4 text-xs text-[#F8FAFA] uppercase tracking-wider px-1">
             <span>Player</span>
             <span className="text-center">Bid</span>
             <span className="text-center">Won</span>
@@ -2392,7 +2417,7 @@ export default function CallBreakerGame() {
             {sortedPlayers.map((p) => (
               <div key={p.id} className="flex flex-col gap-0.5">
                 <div className="flex justify-between text-xs">
-                  <span className="text-gray-400">{p.name}</span>
+                  <span className="text-[#F8FAFA] ">{p.name}</span>
                   <span
                     style={{ color: p.totalScore >= 0 ? "#5BDB6F" : "#FF6B6B" }}
                   >
@@ -2419,10 +2444,10 @@ export default function CallBreakerGame() {
           <div style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }} />
 
           <div className="flex flex-col items-center gap-0.5">
-            <span className="text-gray-500 text-xs  font-bold uppercase tracking-wider">
+            <span className="text-[#E2E8F0] text-xs  font-bold uppercase underline tracking-wider">
               Target Score
             </span>
-            <span className="text-white font-black text-3xl">
+            <span className="text-[#76c893]  font-black text-3xl">
               {TARGET_SCORE}
             </span>
           </div>
@@ -2430,7 +2455,7 @@ export default function CallBreakerGame() {
           <div style={{ borderBottom: "1px solid rgba(255,255,255,0.07)" }} />
 
           <div>
-            <span className="text-gray-500 text-xs uppercase tracking-wider block mb-2">
+            <span className="text-[#E2E8F0] text-xs uppercase tracking-wider block mb-2">
               Round History
             </span>
             <div className="flex flex-wrap gap-1.5">
@@ -2450,7 +2475,7 @@ export default function CallBreakerGame() {
                     >
                       {r.round}
                     </div>
-                    <span className="text-[10px] text-gray-500">
+                    <span className="text-[10px] text-[#E2E8F0] ">
                       {youWon}/{youBid}
                     </span>
                     <span
