@@ -5,12 +5,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo, memo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { redirect } from "react-router";
-//import WinEffect from "./WinEffect";
 import WinEffect from "./WinEffect";
-
-
-
-
 
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -30,9 +25,9 @@ let audioCtx: AudioContext | null = null;
 
 
 
-//const shuffleAudio = new Audio("/sound/shufflesound.mp3");
-
 function getAudioContext(): AudioContext {
+
+   
   if (!audioCtx) {
     audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
   }
@@ -83,19 +78,6 @@ function playSound(name: SoundName) {
         break;
       }
 
-      // case "trickWin": {
-      //   const osc = ctx.createOscillator();
-      //   const gain = ctx.createGain();
-      //   osc.type = "triangle";
-      //   osc.frequency.setValueAtTime(500, now);
-      //   osc.frequency.exponentialRampToValueAtTime(1200, now + 0.2);
-      //   gain.gain.setValueAtTime(0.25, now);
-      //   gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-      //   osc.connect(gain).connect(ctx.destination);
-      //   osc.start(now);
-      //   osc.stop(now + 0.3);
-      //   break;
-      // }
       case "trickWin": {
         console.log("NEW TRICK WIN SOUND");
         const audio = new Audio("/sound/TrickW.wav");
@@ -131,43 +113,32 @@ function playSound(name: SoundName) {
         osc.stop(now + 0.4);
         break;
       }
-      // case "gameWin": {
-      //   const notes = [523.25, 659.25, 783.99, 1046.5];
-      //   notes.forEach((freq, i) => {
-      //     const osc = ctx.createOscillator();
-      //     const gain = ctx.createGain();
-      //     osc.type = "sine";
-      //     osc.frequency.value = freq;
-      //     gain.gain.setValueAtTime(0.2, now + i * 0.15);
-      //     gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.15 + 0.3);
-      //     osc.connect(gain).connect(ctx.destination);
-      //     osc.start(now + i * 0.15);
-      //     osc.stop(now + i * 0.15 + 0.3);
-      //   });
-      //   break;
-      // }
-        case "gameWin": {
-           const audio = new Audio("/sound/WinS.wav");
+
+      case "gameWin": {
+         const audio = new Audio("/sound/WinS.wav");
+         audio.volume = 1;
+       
+         audio.loop = true; // 🔥 sound repeat hoga
+       
+         audio.play().catch(console.error);
+       
+         // ⏱️ stop after 4 seconds
+         setTimeout(() => {
+           audio.pause();
+           audio.currentTime = 0;
+         }, 10000);
+       
+         break;
+       }
+       
+         case "gameLose": {
+           const audio = new Audio("/sound/LoseS.wav");
            audio.volume = 1;
            audio.play().catch(console.error);
            break;
          }
-        case "gameLose": {
-        const notes = [400, 350, 300];
-        notes.forEach((freq, i) => {
-          const osc = ctx.createOscillator();
-          const gain = ctx.createGain();
-          osc.type = "sawtooth";
-          osc.frequency.value = freq;
-          gain.gain.setValueAtTime(0.15, now + i * 0.2);
-          gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.2 + 0.25);
-          osc.connect(gain).connect(ctx.destination);
-          osc.start(now + i * 0.2);
-          osc.stop(now + i * 0.2 + 0.25);
-        });
-        break;
-      }
-  
+
+
         case "shuffle": {
          console.log("shuffle called");
        
@@ -308,7 +279,7 @@ const RANK_VALUE: Record<Rank, number> = {
 const TARGET_SCORE = 40;
 const TOTAL_ROUNDS = 5;
 const CARDS_PER_HAND = 13;
-const TRUMP_SUIT: Suit = "spades";
+//const TRUMP_SUIT: Suit = "spades";
 const BOT_DELAYS = { think: 1000, play: 1200, bid: 1000 };
 const TRICK_RESULT_DELAY = 2000;
 
@@ -477,7 +448,7 @@ function createInitialState(): GameState {
     phase: "bidding",
     currentRound: 1,
     totalRounds: TOTAL_ROUNDS,
-    trumpSuit: TRUMP_SUIT,
+    trumpSuit: "spades",
     players,
     currentTurnIndex: 0,
     currentTrick: [],
@@ -529,16 +500,22 @@ const PlayingCard = memo(
 
     const shadow = selected ? "0 0 12px #facc15" : "0 3px 8px rgba(0,0,0,0.5)";
 
-    const wrapperStyle: React.CSSProperties = {
-      display: "inline-block",
-      flexShrink: 0,
-      cursor: draggable ? "grab" : onClick ? "pointer" : "default",
-      borderRadius: 4,
-      boxShadow: shadow,
-      transform: selected ? "translateY(-20px)" : undefined,
-      transition: "transform 0.15s, box-shadow 0.15s",
-      willChange: "transform, box-shadow",
-    };
+      const wrapperStyle: React.CSSProperties = {
+        display: "inline-block",
+        flexShrink: 0,
+        cursor: draggable ? "grab" : onClick ? "pointer" : "default",
+        borderRadius: 6,
+         boxShadow: selected
+           ? "0 0 30px rgba(239,68,68,1), 0 0 50px rgba(239,68,68,0.6)"
+           : "0 4px 10px rgba(0,0,0,0.35)",
+         
+         transform: selected
+           ? "translateY(-0.020px) scale(1.05)"
+           : "translateY(0)",
+      
+        transition: "all 0.2s ease",
+        willChange: "transform, box-shadow",
+      };
 
     if (faceDown) {
       return (
@@ -583,7 +560,7 @@ const PlayingCard = memo(
 
     const isFace = ["J", "Q", "K"].includes(card.rank);
     const faceGlyph = card.rank === "J" ? "♟" : card.rank === "Q" ? "♛" : "♚";
-    const col = isRed ? "#DC2626" : "#111827";
+    const col = isRed ? "#a4133c" : "#111827";
     const faceBg = isRed ? "#fff5f5" : "#f0f4ff";
     const faceCol = isRed ? "#991b1b" : "#1e3a8a";
 
@@ -605,18 +582,18 @@ const PlayingCard = memo(
             stroke="#d1d5db"
             strokeWidth={1}
           />
-          {selected && (
-            <rect
-              x={1}
-              y={1}
-              width={w - 2}
-              height={h - 2}
-              rx={4}
-              fill="none"
-              stroke="#facc15"
-              strokeWidth={2}
-            />
-          )}
+         {selected && (
+             <rect
+               x={1}
+               y={1}
+               width={w - 2}
+               height={h - 2}
+               rx={4}
+               fill="none"
+               stroke="#ef4444"
+               strokeWidth={2.5}
+             />
+           )}
           <text
             x={4}
             y={rs + 2}
@@ -956,7 +933,7 @@ const Logo = ({ compact = false }: { compact?: boolean }) => (
       <span
         className="font-black tracking-wide"
         style={{
-          color: "#",
+          color: "#0077b6",
           fontSize: compact ? 18 : 26,
           textShadow: "0 2px 8px rgba(91,219,111,0.4)",
         }}
@@ -1017,19 +994,27 @@ const Toast = ({
 // ─────────────────────────────────────────────────────────────────────────────
 // BID MODAL
 // ─────────────────────────────────────────────────────────────────────────────
-const BidModal = ({
-  players,
-  biddingIndex,
-  onBid,
-}: {
-  players: PlayerState[];
-  biddingIndex: number;
-  onBid: (bid: number) => void;
-}) => {
-  const [selectedBid, setSelectedBid] = useState<number>(1);
 
-  const currentBidder = players[biddingIndex];
-  if (!currentBidder) return null;
+    const BidModal = ({
+    players,
+    biddingIndex,
+    onBid,
+    selectedTrump,
+    setSelectedTrump,
+  }: {
+    players: PlayerState[];
+    biddingIndex: number;
+    onBid: (bid: number) => void;
+    selectedTrump: Suit | null;
+    setSelectedTrump: React.Dispatch<
+      React.SetStateAction<Suit | null>
+    >;
+  }) => {
+   const [selectedBid, setSelectedBid] = useState<number>(
+    selectedTrump ? 5 : 1
+   );
+    const currentBidder = players[biddingIndex];
+    if (!currentBidder) return null;
 
   const isHuman = currentBidder.isHuman;
   const humanPlayer = players.find((p) => p.isHuman);
@@ -1037,7 +1022,12 @@ const BidModal = ({
   const placedBids = players.filter((p) => p.bid !== null);
 
   const BID_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
-
+  const mustBidFiveOrMore = !!selectedTrump;
+  useEffect(() => {
+  if (selectedTrump) {
+    setSelectedBid(5);
+  }
+  }, [selectedTrump]);
   return (
     <div
       className="fixed inset-0 flex items-center justify-center z-50 p-4"
@@ -1079,7 +1069,8 @@ const BidModal = ({
                 style={{
                   background: isCurrent
                     ? "rgba(59,130,245,0.15)"
-                    : "rgba(255,255,255,0.04)",
+                    : "#e9ecef",
+                    
                   border: isCurrent
                     ? "1px solid rgba(59,130,245,0.15)"
                     : "1px solid transparent",
@@ -1131,23 +1122,42 @@ const BidModal = ({
             <div
               className="flex flex-wrap justify-center gap-1 scrollbar-hide scroll-slick max-h-32 overflow-y-auto p-2 rounded-xl"
               style={{
-                background: "rgba(209,213,219,0.25)",
+                background: "#e9ecef",
                 border: "1px solid rgba(255,255,255,0.06)",
               }}
             >
+                    
               {humanHand.map((card) => (
-                <PlayingCard
+              <motion.div
                   key={`${card.rank}-${card.suit}`}
-                  card={card}
-                  size="sm"
-                />
-              ))}
-            </div>
-            <p className="text-[#f26a8d] text-[10px] text-center">
-              Review your cards before placing your bid.
-            </p>
+                  animate={{
+                    y: selectedTrump === card.suit ? -2 : 0,
+                    scale: selectedTrump === card.suit ? 1.01 : 1,
+                  }}
+                  transition={{
+                    type: "spring",
+                    stiffness: 300,
+                    damping: 18,
+                  }}
+                >
+                  <PlayingCard
+                    card={card}
+                    size="sm"
+                    selected={selectedTrump === card.suit}
+                    onClick={() => setSelectedTrump(card.suit)}
+                  />
+                </motion.div>
+                    ))}
+                   </div>
+                  
+            <p className="text-[#f26a8d] text-[10px] text-center font-bold">
+             {selectedTrump
+               ? `Selected Trump: ${selectedTrump.toUpperCase()}`
+               : "Click on any card to select the trump"}
+           </p>
           </div>
         )}
+
 
         {isHuman ? (
           <>
@@ -1157,24 +1167,31 @@ const BidModal = ({
                 <span className="text-[#00a6fb] ">(min 1 - max 8)</span>
               </div>
               <div className="grid grid-cols-4 gap-2">
-                {BID_OPTIONS.map((b) => (
-                  <button
-                    key={b}
-                    onClick={() => {
-                      playSound("bidPlaced");
-                      setSelectedBid(b);
-                    }}
+    
+                    {BID_OPTIONS.map((b) => (
+                      <button
+                        key={b}
+                        disabled={mustBidFiveOrMore && b < 5}
+                       
+                        onClick={() => {
+                       if (mustBidFiveOrMore && b < 5) return;
+                        
+                          playSound("bidPlaced");
+                          setSelectedBid(b);
+                        }}
                     className="py-3 rounded-xl font-black text-lg transition-all active:scale-95"
                     style={{
+                      opacity: mustBidFiveOrMore && b < 5 ? 0.4 : 1,
+                      cursor: mustBidFiveOrMore && b < 5 ? "not-allowed" : "pointer",
                       background:
                         selectedBid === b
                           ? "rgba(59,130,245,0.15)"
-                          : "rgba(209,213,219,0.15)",
+                          : "#e9ecef",
                       border:
                         selectedBid === b
                           ? "2px solid #00a6fb"
                           : "1px solid rgba(255,255,255,0.12)",
-                      color: selectedBid === b ? "#00a6fb" : "#cbd5e1",
+                      color: selectedBid === b ? "#00a6fb" : "#4a4e69",
                     }}
                   >
                     {b}
@@ -1185,9 +1202,13 @@ const BidModal = ({
                 ♠ Spades are trump. Higher bid = higher risk & reward.
               </div>
             </div>
-
-            <button
-              onClick={() => onBid(selectedBid)}
+             <button
+              disabled={!selectedTrump}
+              onClick={() => {
+                 if (!selectedTrump) return;
+               
+                 onBid(selectedBid);
+               }}
               className="w-full py-3.5 rounded-xl font-black text-white text-base transition-all hover:brightness-110 cursor-pointer active:scale-95"
               style={{
                 background: "linear-gradient(135deg,#00a6fb,#0353a4)",
@@ -1195,7 +1216,8 @@ const BidModal = ({
               }}
             >
               Bid {selectedBid} Trick{selectedBid !== 1 ? "s" : ""}
-            </button>
+            </button> 
+
           </>
         ) : null}
       </motion.div>
@@ -1208,6 +1230,7 @@ const BidModal = ({
 // ─────────────────────────────────────────────────────────────────────────────
 export default function CallBreakerGame() {
   const [game, setGame] = useState<GameState>(createInitialState);
+  const [selectedTrump, setSelectedTrump] = useState<Suit | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [showRules, setShowRules] = useState(false);
   const [toast, setToast] = useState<{
@@ -1231,6 +1254,8 @@ export default function CallBreakerGame() {
   const bidTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const trickResultTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tableRef = useRef<HTMLDivElement>(null);
+
+  
  
 
   // ── Toast wrapper with sound ──────────────────────────────────────────────
@@ -1321,20 +1346,25 @@ export default function CallBreakerGame() {
   );
 
   // ── Process a single bid (sound added) ───────────────────────────────────
-  const processBid = useCallback((bid: number) => {
+  
+  const processBid = useCallback(
+  (bid: number) => {
     setGame((prev) => {
       if (prev.phase !== "bidding") return prev;
+
       const biddingPlayer = prev.players[prev.biddingIndex];
       if (!biddingPlayer) return prev;
 
       const updatedPlayers = prev.players.map((p, idx) =>
-        idx === prev.biddingIndex ? { ...p, bid } : p,
+        idx === prev.biddingIndex ? { ...p, bid } : p
       );
+
       const nextBiddingIndex = prev.biddingIndex + 1;
       const allBid = nextBiddingIndex >= prev.players.length;
 
       return {
         ...prev,
+        trumpSuit: selectedTrump ?? prev.trumpSuit, // 🔥 ADD THIS
         players: updatedPlayers,
         biddingIndex: nextBiddingIndex,
         phase: allBid ? "playing" : "bidding",
@@ -1342,9 +1372,11 @@ export default function CallBreakerGame() {
         turnToken: `${Date.now()}_${Math.random()}`,
       };
     });
-    playSound("bidPlaced");
-  }, []);
 
+    playSound("bidPlaced");
+  },
+  [selectedTrump] // 🔥 ADD THIS
+  );
   // ── Auto-bid for bots ────────────────────────────────────────────────────
   useEffect(() => {
     if (game.phase !== "bidding") return;
@@ -1783,7 +1815,6 @@ export default function CallBreakerGame() {
     <WinEffect show={showConfetti} />
       {/* TOAST */}
       {toast && <Toast msg={toast.msg} type={toast.type} />}
-
       {/* SHUFFLE OVERLAY */}
       <AnimatePresence>
         {isDealing && <ShuffleAnimation key="shuffle" />}
@@ -1794,10 +1825,12 @@ export default function CallBreakerGame() {
         {game.phase === "bidding" &&
           game.biddingIndex < game.players.length &&
           !isDealing && (
-            <BidModal
+           <BidModal
               players={game.players}
               biddingIndex={game.biddingIndex}
               onBid={processBid}
+              selectedTrump={selectedTrump}
+              setSelectedTrump={setSelectedTrump}
             />
           )}
       </AnimatePresence>
@@ -1868,7 +1901,7 @@ export default function CallBreakerGame() {
               <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" />
               <path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
             </svg>
-            Rules
+            `Rules`
           </button>
           <button
             className="w-8 h-8 rounded-full flex items-center justify-center text-[#ff6700]"
@@ -2111,70 +2144,8 @@ export default function CallBreakerGame() {
             )}
           </div>
 
-          {/* You row */}
-          <div
-            className="rounded-xl p-2 flex items-center gap-3 transition-all"
-            style={{
-                background: 
-               "radial-gradient(ellipse at top, #76c893 50%, #34a0a4 85%, #1a759f 100%)",
-                border: isYourTurn
-                  ? "2px solid #1a759f "
-                  : "1px solid #1e96fc",
-                boxShadow: isYourTurn
-                  ? "0 0 12px rgba(59,130,246,0.35)"
-                  : "0 0 6px rgba(59,130,246,0.15)",
-              }}
-                     >
-            <Avatar id="you" name="You" size={44} online />
-            <div>
-              <div className="text-[#ffffff] font-bold text-sm">You</div>
-              <ScoreNum v={you.totalScore} size="lg"  />
-            </div>
-            {you.bid !== null && (
-              <div className="ml-2 flex flex-col items-start">
-                <span className="text-[#d62828] underline decoration-2 text-s font-black">
-                  Bid: {you.bid}
-                </span>
-                <span className="text-[#3d348b] hover:underline decoration-2 underline-offset-3  font-bold text-xs">
-                  Won: {you.tricksWon}
-                </span>
-              </div>
-            )}
-            {isYourTurn && !youHasPlayed && (
-              <span className="ml-2 text-[#072ac8] text-xs font-bold uppercase tracking-wider animate-pulse">
-                Your Turn
-              </span>
-            )}
-            {!isYourTurn && botThinking && game.phase === "playing" && (
-              <span className="ml-2 text-[#ffbc42] text-xs">waiting...</span>
-            )}
-            {game.phase === "trick_result" && (
-              <span className="ml-2 text-[#fca311] text-xs font-bold">
-                Trick resolving...
-              </span>
-            )}
-            {youHasPlayed &&
-              game.currentTrick.find((tc) => tc.playerId === "you") && (
-                <motion.div
-                  initial={{ scale: 0, rotate: -10 }}
-                  animate={{ scale: 1, rotate: 0 }}
-                  className="ml-2 flex items-center gap-1.5"
-                >
-                  <PlayingCard
-                    card={
-                      game.currentTrick.find((tc) => tc.playerId === "you")!
-                        .card
-                    }
-                    size="sm"
-                  />
-                </motion.div>
-              )}
-            <div className="ml-auto text-xs text-[#14213d] font-semibold">
-              {you.hand.length} cards
-            </div>
-          </div>
+         {/*  your hand */}
 
-          {/* Your hand */}
           <div
             className="rounded-2xl p-2 md:p-3"
             style={{
@@ -2250,11 +2221,7 @@ export default function CallBreakerGame() {
                             card={card}
                             size="lg"
                             selected={isSel}
-                           // onClick={
-                             // isCardInteractable
-                               // ? () => setSelectedCard(isSel ? null : card)
-                                //: undefined
-                            //}
+                         
                                   onClick={
                                      isCardInteractable
                                        ? () => {
@@ -2289,27 +2256,68 @@ export default function CallBreakerGame() {
             )}
           </div>
 
-          {/* Action button */}
-          {/* {!youHasPlayed && game.phase === "playing" && (
-            <div className="grid grid-cols-1 gap-2">
-                  ? `${selectedCard.rank} of ${selectedCard.suit} selected —   lick a card to play it, or drag/touch-drag it onto the table`
-              <button
-                onClick={humanPlay}
-                disabled={!isYourTurn || !selectedCard || botThinking}
-                className="flex items-center justify-center gap-2 py-3.5 rounded-xl font-black text-base text-white transition-all active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed"
-                style={{
-                  background: "linear-gradient(135deg,#22c55e,#16a34a)",
-                  boxShadow:
-                    isYourTurn && selectedCard && !botThinking
-                      ? "0 4px 18px rgba(34,197,94,0.4)"
-                      : "none",
-                }}
-              >
-                <span>🃏</span>
-                {botThinking ? "BOT PLAYING..." : "PLAY CARD"}
-              </button>
+          {/* You row */}
+          <div
+            className="rounded-xl p-2 flex items-center gap-3 transition-all"
+            style={{
+                background: 
+               "radial-gradient(ellipse at top, #76c893 50%, #34a0a4 85%, #1a759f 100%)",
+                border: isYourTurn
+                  ? "2px solid #1a759f "
+                  : "1px solid #1e96fc",
+                boxShadow: isYourTurn
+                  ? "0 0 12px rgba(59,130,246,0.35)"
+                  : "0 0 6px rgba(59,130,246,0.15)",
+              }}
+                     >
+            <Avatar id="you" name="You" size={44} online />
+            <div>
+              <div className="text-[#ffffff] font-bold text-sm">You</div>
+              <ScoreNum v={you.totalScore} size="lg"   />
             </div>
-          )} */}
+            {you.bid !== null && (
+              <div className="ml-2 flex flex-col items-start">
+                <span className="text-[#d62828] underline decoration-2 text-s font-black">
+                  Bid: {you.bid}
+                </span>
+                <span className="text-[#3d348b] hover:underline decoration-2 underline-offset-3  font-bold text-xs">
+                  Won: {you.tricksWon}
+                </span>
+              </div>
+            )}
+            {isYourTurn && !youHasPlayed && (
+              <span className="ml-2 text-[#072ac8] text-xs font-bold uppercase tracking-wider animate-pulse">
+                Your Turn
+              </span>
+            )}
+            {!isYourTurn && botThinking && game.phase === "playing" && (
+              <span className="ml-2 text-[#ffbc42] text-xs">waiting...</span>
+            )}
+            {game.phase === "trick_result" && (
+              <span className="ml-2 text-[#fca311] text-xs font-bold">
+                Trick resolving...
+              </span>
+            )}
+            {youHasPlayed &&
+              game.currentTrick.find((tc) => tc.playerId === "you") && (
+                <motion.div
+                  initial={{ scale: 0, rotate: -10 }}
+                  animate={{ scale: 1, rotate: 0 }}
+                  className="ml-2 flex items-center gap-1.5"
+                >
+                  <PlayingCard
+                    card={
+                      game.currentTrick.find((tc) => tc.playerId === "you")!
+                        .card
+                    }
+                    size="sm"
+                  />
+                </motion.div>
+              )}
+            <div className="ml-auto text-xs text-[#14213d] font-semibold">
+              {you.hand.length} cards
+            </div>
+          </div>
 
           {/* New Game / Exit */}
           <div className="grid grid-cols-2 gap-2 pb-2">
@@ -2664,7 +2672,7 @@ export default function CallBreakerGame() {
                   key={p.id}
                   className="flex items-center justify-between px-3 py-2 rounded-xl"
                   style={{
-                    background:
+                    background: 
                       rank === 0
                         ? "rgba(250,204,21,0.1)"
                         : "rgba(255,255,255,0.04)",
