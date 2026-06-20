@@ -1,275 +1,310 @@
+
+
 "use client";
 
 import React, { useEffect, useState } from "react";
 
-const FirstPage : React.FC = () => {
-  const [showButton, setShowButton] = useState(false);
+interface FirstPageProps {
+  onPlay: () => void;
+}
+
+const FirstPage: React.FC<FirstPageProps> = ({ onPlay }) => {
+  const [loading, setLoading] = useState(0);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setShowButton(true);
-    }, 5000);
+    const interval = setInterval(() => {
+      setLoading((prev) => {
+        if (prev >= 100) {
+          clearInterval(interval);
+          return 100;
+        }
+        return prev + 2;
+      });
+    }, 100);
 
-    return () => clearTimeout(timer);
+    return () => clearInterval(interval);
   }, []);
 
   return (
     <>
       <style>{`
-        @keyframes pageEntrance {
-          from {
-            opacity: 0;
-            transform: scale(1.03);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
+        @keyframes float {
+          0%,100% { transform: translateY(0px); }
+          50% { transform: translateY(-25px); }
         }
 
-        @keyframes cardRotate {
+        @keyframes rotateCard {
           0% {
-            transform: perspective(1200px) rotateY(0deg) translateY(0px);
+            transform: perspective(1000px) rotateY(0deg);
           }
           50% {
-            transform: perspective(1200px) rotateY(180deg) translateY(-18px);
+            transform: perspective(1000px) rotateY(180deg);
           }
           100% {
-            transform: perspective(1200px) rotateY(360deg) translateY(0px);
-          }
-        }
-
-        @keyframes float {
-          0%,100% {
-            transform: translateY(0px);
-          }
-          50% {
-            transform: translateY(-12px);
-          }
-        }
-
-        @keyframes glowPulse {
-          0%,100% {
-            box-shadow:
-              0 0 25px rgba(118,200,147,.35),
-              0 0 50px rgba(52,160,164,.25);
-          }
-          50% {
-            box-shadow:
-              0 0 50px rgba(118,200,147,.6),
-              0 0 90px rgba(52,160,164,.45);
-          }
-        }
-
-        @keyframes buttonReveal {
-          from {
-            opacity: 0;
-            transform: scale(.7) translateY(30px);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1) translateY(0);
+            transform: perspective(1000px) rotateY(360deg);
           }
         }
 
         @keyframes pulseGlow {
           0%,100% {
             box-shadow:
-              0 0 20px rgba(30,96,145,.45),
-              0 0 40px rgba(22,138,173,.3);
+              0 0 25px rgba(255,255,255,.4),
+              0 0 60px rgba(255,255,255,.25);
           }
           50% {
             box-shadow:
-              0 0 40px rgba(30,96,145,.85),
-              0 0 80px rgba(22,138,173,.55);
+              0 0 60px rgba(255,255,255,.9),
+              0 0 120px rgba(255,255,255,.6);
           }
         }
 
-        @keyframes particleFloat {
+        @keyframes buttonGlow {
+          0%,100% {
+            box-shadow:
+              0 0 20px #39ff14,
+              0 0 50px #39ff14;
+          }
+          50% {
+            box-shadow:
+              0 0 40px #39ff14,
+              0 0 90px #39ff14;
+          }
+        }
+
+        @keyframes sparkle {
           from {
             transform: translateY(0px);
             opacity: .2;
           }
-          50% {
+          to {
+            transform: translateY(-200px);
             opacity: 1;
           }
-          to {
-            transform: translateY(-120px);
-            opacity: .1;
-          }
         }
 
-        @keyframes bgCardMove {
-          0% {
-            transform: translateY(0px) rotate(-15deg);
+        @keyframes cardLeft {
+          0%,100% {
+            transform: rotate(-18deg) translateY(0);
           }
           50% {
-            transform: translateY(-30px) rotate(-8deg);
-          }
-          100% {
-            transform: translateY(0px) rotate(-15deg);
+            transform: rotate(-10deg) translateY(-25px);
           }
         }
 
-        @keyframes bgCardMove2 {
-          0% {
-            transform: translateY(0px) rotate(15deg);
+        @keyframes cardRight {
+          0%,100% {
+            transform: rotate(18deg) translateY(0);
           }
           50% {
-            transform: translateY(40px) rotate(25deg);
+            transform: rotate(10deg) translateY(25px);
           }
-          100% {
-            transform: translateY(0px) rotate(15deg);
-          }
-        }
-
-        .page-enter {
-          animation: pageEntrance 1.2s ease forwards;
         }
 
         .main-card {
           animation:
-            cardRotate 5s ease-in-out forwards,
-            glowPulse 2.5s infinite;
-          transform-style: preserve-3d;
+            rotateCard 5s ease-in-out 1,
+            pulseGlow 3s infinite;
         }
 
         .play-btn {
-          animation:
-            buttonReveal .8s ease forwards,
-            float 3s ease-in-out infinite,
-            pulseGlow 2s infinite;
+          animation: buttonGlow 2s infinite;
+        }
+        .bg-card-left {
+          animation: cardLeft 8s ease-in-out infinite;
         }
 
-        .particle {
-          animation: particleFloat linear infinite;
+        .bg-card-right {
+          animation: cardRight 8s ease-in-out infinite;
         }
 
-        .bg-card-1 {
-          animation: bgCardMove 8s ease-in-out infinite;
-        }
-
-        .bg-card-2 {
-          animation: bgCardMove2 10s ease-in-out infinite;
+        .sparkle {
+          animation: sparkle linear infinite;
         }
       `}</style>
 
-      <div className="relative w-full h-screen overflow-hidden bg-[#168AAD] page-enter">
+      <div className="relative h-screen overflow-hidden bg-[#021230]">
 
-        {/* Background Gradient */}
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top,#34A0A4_0%,transparent_50%)] opacity-40" />
+        {/* Background Glow */}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#003A8C_0%,#021230_70%)]" />
 
-        {/* Blur Orbs */}
-        <div className="absolute top-10 left-10 h-72 w-72 rounded-full bg-[#76C893]/20 blur-3xl" />
-        <div className="absolute bottom-10 right-10 h-80 w-80 rounded-full bg-[#1E6091]/30 blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 h-96 w-96 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/10 blur-[120px]" />
+        {/* Light Rays */}
+        <div className="absolute left-1/2 top-0 h-full w-[700px] -translate-x-1/2 bg-gradient-to-b from-blue-400/20 to-transparent blur-3xl" />
 
-        {/* Floating Background Cards */}
-        <div className="bg-card-1 absolute left-[8%] top-[18%] h-52 w-36 rounded-3xl border border-white/20 bg-white/10 backdrop-blur-md shadow-2xl rotate-[-15deg]" />
-
-        <div className="bg-card-2 absolute right-[10%] top-[20%] h-60 w-40 rounded-3xl border border-white/20 bg-white/10 backdrop-blur-md shadow-2xl rotate-[-15deg]" />
-
-        <div className="bg-card-1 absolute bottom-[15%] left-[20%] h-40 w-28 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md rotate-[-12deg]" />
-
-        <div className="bg-card-2 absolute bottom-[18%] right-[18%] h-44 w-32 rounded-3xl border border-white/10 bg-white/5 backdrop-blur-md rotate-[-10deg]" />
-
-        {/* Sparkle Particles */}
-        {[...Array(30)].map((_, i) => (
+        {/* Floating Particles */}
+        {[...Array(40)].map((_, i) => (
           <span
             key={i}
-            className="particle absolute rounded-full bg-white"
+            className="sparkle absolute rounded-full bg-white"
             style={{
               width: `${Math.random() * 4 + 2}px`,
               height: `${Math.random() * 4 + 2}px`,
               left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDuration: `${6 + Math.random() * 8}s`,
-              animationDelay: `${Math.random() * 5}s`,
+              bottom: "-20px",
+              animationDuration: `${6 + Math.random() * 10}s`,
+              animationDelay: `${Math.random() * 6}s`,
             }}
           />
         ))}
 
-        {/* Main Content */}
-        <div className="relative z-20 flex h-full flex-col items-center justify-center px-6">
+        {/* Header */}
+        <div className="absolute top-0 z-50 flex h-20 w-full items-center justify-between border-b border-white/10 px-8">
 
-          {/* Premium Rotating Card */}
-          <div
-            className="
-              main-card
-              relative
-              h-[320px]
-              w-[220px]
-              rounded-3xl
-              border
-              border-white/40
-              bg-white/90
-              backdrop-blur-xl
-              shadow-[0_30px_80px_rgba(0,0,0,0.35)]
-              transition-all
-              duration-500
-              hover:scale-105
-            "
-          >
-            {/* Reflection */}
-            <div className="absolute inset-0 overflow-hidden rounded-3xl">
-              <div className="absolute -left-20 top-0 h-full w-20 rotate-12 bg-gradient-to-r from-transparent via-white/50 to-transparent blur-md" />
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-white/10">
+              ♠
             </div>
 
-            {/* Card Content */}
-            <div className="absolute inset-0 flex flex-col items-center justify-center">
-
-              <div className="mb-4 text-7xl">♠</div>
-
-              <h1 className="bg-gradient-to-r from-[#1E6091] to-[#34A0A4] bg-clip-text text-center text-4xl font-extrabold text-transparent">
-                CARD
-              </h1>
-
-              <h2 className="text-xl font-bold tracking-[6px] text-[#168AAD]">
-                MASTER
-              </h2>
-
-              <div className="mt-6 h-1 w-24 rounded-full bg-gradient-to-r from-[#1E6091] to-[#76C893]" />
-            </div>
-
-            {/* Glow Border */}
-            <div className="absolute inset-0 rounded-3xl border border-white/50" />
+            <span className="text-xl font-bold text-white">
+              Minus Plus
+            </span>
           </div>
 
-             {/* Play Button Reveal */}
-             (
-               <button
-                 className="
-                   play-btn
-                   mt-12
-                   rounded-2xl
-                   border
-                   border-[#14532d]
-                   px-12
-                   py-4
-                   text-xl
-                   font-bold
-                   text-white
-                   transition-all
-                   duration-300
-                   hover:scale-110
-                   hover:shadow-[0_0_40px_rgba(34,197,94,0.7)]
-                   active:scale-95
-                 "
-                 style={{
-                   background:
-                     "linear-gradient(135deg,#14532d,#166534,#22c55e)",
-                 }}
-               >
-                  PLAY
-               </button>
-             )
+          <div className="flex gap-6 text-3xl text-white/70">
+            🏆
+            👥
+            ⚙️
+          </div>
+        </div>
 
-          {/* Subtitle */}
-          <p className="mt-8 max-w-xl text-center text-white/80">
-            Enter the ultimate multiplayer card arena. Challenge players,
-            compete in real-time matches, and dominate the leaderboard with
-            style.
-          </p>
+        {/* Floating Cards */}
+        <div className="bg-card-left absolute left-[8%] top-[22%] h-64 w-44 rounded-3xl border border-blue-300/20 bg-blue-900/10 backdrop-blur-md">
+          <div className="flex h-full items-center justify-center text-[120px] text-white/10">
+            ♠
+          </div>
+        </div>
+
+        <div className="bg-card-right absolute right-[10%] top-[20%] h-64 w-44 rounded-3xl border border-blue-300/20 bg-blue-900/10 backdrop-blur-md">
+          <div className="flex h-full items-center justify-center text-[120px] text-white/10">
+            ♦
+          </div>
+        </div>
+
+        <div className="bg-card-left absolute bottom-[12%] left-[10%] h-64 w-44 rounded-3xl border border-blue-300/20 bg-blue-900/10 backdrop-blur-md">
+          <div className="flex h-full items-center justify-center text-[120px] text-white/10">
+            ♥
+          </div>
+        </div>
+
+        <div className="bg-card-right absolute bottom-[12%] right-[10%] h-64 w-44 rounded-3xl border border-blue-300/20 bg-blue-900/10 backdrop-blur-md">
+          <div className="flex h-full items-center justify-center text-[120px] text-white/10">
+            ♣
+          </div>
+        </div>
+
+        {/* Main Section */}
+        <div className="relative z-20 flex h-full flex-col items-center justify-center pt-30">
+
+          {/* Main Card */}
+          <div className="main-card relative h-[300px] w-[220px] rounded-[20px] bg-white shadow-[0_0_80px_rgba(255,255,255,.7)]">
+
+            <div className="absolute inset-0 rounded-[40px] border border-white/70" />
+
+            <div className="flex h-full flex-col items-center justify-center">
+
+              <div className="mb-4 text-[60px] text-[#071330]">
+                ♠
+              </div>
+
+              <h1 className="text-[40px] font-black leading-none text-[#30cd14]">
+                MINUS
+              </h1>
+
+              <h2 className="mt-2 text-[32px] font-bold tracking-[12px] text-[#1976D2]">
+                PLUS
+              </h2>
+
+              <div className="mt-10 w-[190px]">
+
+                <div className="h-3 overflow-hidden rounded-full bg-[#071330]">
+
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-[#39FF14] via-[#00E5FF] to-[#00E5FF] transition-all duration-300"
+                    style={{
+                      width: `${loading}%`,
+                    }}
+                  />
+                </div>
+
+                <p className="mt-4 text-center text-sm font-semibold tracking-[4px] text-[#071330]">
+                  LOADING...
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Platform Glow */}
+          <div className="absolute bottom-[180px] h-10 w-[450px] rounded-full bg-cyan-400/30 blur-2xl" />
+
+          {/* Play Button */}
+          <button
+            onClick={onPlay}
+            className="
+              play-btn
+              mt-10
+              h-[65px]
+              w-[250px]
+              rounded-[28px]
+              border-4
+              border-[#77ff77]
+              bg-gradient-to-b
+              from-[#53ff38]
+              via-[#1fd61f]
+              to-[#0ea90e]
+              text-[32px]
+              font-black
+              text-white
+              transition-all
+              hover:scale-105
+              active:scale-95
+            "
+          >
+           PLAY
+          </button>
+
+          {/* Features Panel */}
+          <div className="mt-12 w-[900px] rounded-3xl border border-white/10 bg-[#061c48]/90 backdrop-blur-xl">
+
+            <div className="grid grid-cols-3">
+
+              <div className="border-r border-white/10 p-8">
+                <div className="mb-3 text-4xl">👥</div>
+
+                <h3 className="text-2xl font-bold text-white">
+                  MULTIPLAYER
+                </h3>
+
+                <p className="mt-2 text-white/70">
+                  Play real-time matches with players worldwide
+                </p>
+              </div>
+
+              <div className="border-r border-white/10 p-8">
+                <div className="mb-3 text-4xl">🛡️</div>
+
+                <h3 className="text-2xl font-bold text-white">
+                  COMPETE
+                </h3>
+
+                <p className="mt-2 text-white/70">
+                  Climb the leaderboard and prove your skill
+                </p>
+              </div>
+
+              <div className="p-8">
+                <div className="mb-3 text-4xl">👑</div>
+
+                <h3 className="text-2xl font-bold text-white">
+                  DOMINATE
+                </h3>
+
+                <p className="mt-2 text-white/70">
+                  Outsmart opponents and become champion
+                </p>
+              </div>
+
+            </div>
+          </div>
+
         </div>
       </div>
     </>
