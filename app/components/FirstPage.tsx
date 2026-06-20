@@ -107,8 +107,8 @@ const FirstPage: React.FC<FirstPageProps> = ({ onPlay }) => {
         }
 
         .play-btn {
-          animation: buttonGlow 2s infinite;
-        }
+       animation: buttonGlow 2s infinite;
+     }
         .bg-card-left {
           animation: cardLeft 8s ease-in-out infinite;
         }
@@ -159,11 +159,6 @@ const FirstPage: React.FC<FirstPageProps> = ({ onPlay }) => {
             </span>
           </div>
 
-          <div className="flex gap-6 text-3xl text-white/70">
-            🏆
-            👥
-            ⚙️
-          </div>
         </div>
 
         {/* Floating Cards */}
