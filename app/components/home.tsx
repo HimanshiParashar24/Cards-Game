@@ -1119,7 +1119,7 @@ const Toast = ({
         {isHuman && humanHand.length > 0 && (
           <div className="flex flex-col gap-2">
             <div className="text-[#0353a4] font-bold text-xs uppercase tracking-wider">
-              Your Cards
+              Select a Trump Card
             </div>
             <div
               className="flex flex-wrap justify-center gap-1 scrollbar-hide scroll-slick max-h-32 overflow-y-auto p-2 rounded-xl"
@@ -1152,7 +1152,7 @@ const Toast = ({
                     ))}
                    </div>
                   
-            <p className="text-[#f26a8d] text-[10px] text-center font-bold">
+            <p className="text-[#c9184a] text-[10px] text-center font-bold">
              {selectedTrump
                ? `Selected Trump: ${selectedTrump.toUpperCase()}`
                : "Click on any card to select the trump"}
@@ -1205,9 +1205,9 @@ const Toast = ({
               </div>
             </div>
              <button
-              disabled={!selectedTrump}
+              disabled={false}
               onClick={() => {
-                 if (!selectedTrump) return;
+                 const trumpSuit = selectedTrump ?? "spades";
                
                  onBid(selectedBid);
                }}
