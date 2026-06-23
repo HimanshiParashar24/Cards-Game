@@ -231,7 +231,7 @@ interface GameState {
   phase: GamePhase;
   currentRound: number;
   totalRounds: number;
-  trumpSuit: Suit;
+  trumpSuit: Suit | null ;
   players: PlayerState[];
   currentTurnIndex: number;
   currentTrick: PlayedCard[];
@@ -940,7 +940,7 @@ const Logo = ({ compact = false }: { compact?: boolean }) => (
           textShadow: "0 2px 8px rgba(91,219,111,0.4)",
         }}
       >
-        CALL
+        Minus
       </span>
       <span
         className="font-black mx-0.5"
@@ -956,7 +956,7 @@ const Logo = ({ compact = false }: { compact?: boolean }) => (
           textShadow: "0 2px 8px rgba(255,107,107,0.4)",
         }}
       >
-        BREAKER
+      Plus
       </span>
     </div>
     {!compact && (
@@ -1283,7 +1283,7 @@ export default function CallBreakerGame() {
   const resolveTrickFromState = useCallback(
     (prev: GameState): GameState => {
       const trick = prev.currentTrick;
-      const winnerId = trickWinner(trick, prev.trumpSuit);
+      const winnerId = trickWinner(trick, prev.trumpSuit ?? "spades");
       const winnerName =
         prev.players.find((p) => p.id === winnerId)?.name ?? "?";
 
@@ -1387,7 +1387,7 @@ export default function CallBreakerGame() {
 
     if (bidTimer.current) clearTimeout(bidTimer.current);
     bidTimer.current = setTimeout(() => {
-      const bid = botBid(biddingPlayer.hand, game.trumpSuit);
+      const bid = botBid(biddingPlayer.hand, game.trumpSuit ?? "spades");
       processBid(bid);
       showToast(`${biddingPlayer.name} bids ${bid}`, "info");
     }, BOT_DELAYS.bid);
@@ -1473,6 +1473,8 @@ export default function CallBreakerGame() {
         ...g,
         phase: "bidding",
         currentRound: g.currentRound + 1,
+        trumpSuit: null,
+        
         players: g.players.map((p, i) => ({
           ...p,
           hand: hands[i],
@@ -1491,6 +1493,7 @@ export default function CallBreakerGame() {
       setSelectedCard(null);
       setShowRoundModal(false);
       setIsDealing(false);
+      setSelectedTrump(null);
       setBotThinking(false);
     }, 1800);
   }, [game.currentRound, game.totalRounds, game.players]);
@@ -1512,7 +1515,7 @@ export default function CallBreakerGame() {
       const valid = getValidCards(
         currentPlayer.hand,
         game.currentTrick,
-        game.trumpSuit,
+        game.trumpSuit ?? "spades" ,
       );
       const isValid = valid.some(
         (c) => c.rank === card.rank && c.suit === card.suit,
@@ -1576,6 +1579,7 @@ export default function CallBreakerGame() {
     if (trickResultTimer.current) clearTimeout(trickResultTimer.current);
     setBotThinking(false);
     setSelectedCard(null);
+    setSelectedTrump(null);
     setShowRoundModal(false);
     setShowGameOverModal(false); // hide game-over modal immediately
     setDragOverTable(false);
@@ -1615,7 +1619,7 @@ export default function CallBreakerGame() {
 
         const card = botDecide(
           bot.hand,
-          prev.trumpSuit,
+          prev.trumpSuit ?? "spades",
           prev.currentTrick,
           bot.bid ?? 0,
           bot.tricksWon,
@@ -1666,7 +1670,7 @@ export default function CallBreakerGame() {
     if (game.phase !== "trick_result") return;
 
     if (trickResultTimer.current) clearTimeout(trickResultTimer.current);
-    const winnerId = trickWinner(game.currentTrick, game.trumpSuit);
+    const winnerId = trickWinner(game.currentTrick, game.trumpSuit?? "spades");
     const winnerName = game.players.find((p) => p.id === winnerId)?.name ?? "?";
     showToast(`${winnerName} wins the trick!`, "success");
 
@@ -1711,7 +1715,7 @@ export default function CallBreakerGame() {
 
   const validCardKeys = useMemo(() => {
     if (!isYourTurn || youHasPlayed) return new Set<string>();
-    const valid = getValidCards(you.hand, game.currentTrick, game.trumpSuit);
+    const valid = getValidCards(you.hand, game.currentTrick, game.trumpSuit?? "spades");
     return new Set(valid.map((c) => `${c.rank}-${c.suit}`));
   }, [isYourTurn, youHasPlayed, you.hand, game.currentTrick, game.trumpSuit]);
 
@@ -2066,9 +2070,9 @@ export default function CallBreakerGame() {
                 </span>
                 <span
                   className="font-black text-2xl"
-                  style={{ color: trumpIsRed ? "#FF6B6B" : "#e2e8f0" }}
+                  style={{ color: trumpIsRed ? "#c9184a" : "#e2e8f0" }}
                 >
-                  {trumpSym[game.trumpSuit]}
+                  {trumpSym[game.trumpSuit ?? "spades"]}
                 </span>
               </div>
               <div className="flex flex-col  items-center">
@@ -2094,7 +2098,7 @@ export default function CallBreakerGame() {
             {/* Current trick on table */}
             <div className="flex  items-center justify-center gap-3 min-h-[90px] flex-wrap py-1">
               {game.currentTrick.length === 0 ? (
-                <span className="text-[#ff6b35] text-sm italic">
+                <span className="text-[#c9184a] text-sm italic">
                   {game.phase === "playing"
                     ? botThinking && activeBotId
                       ? `${game.players.find((p) => p.id === activeBotId)?.name} is thinking...`
@@ -2323,6 +2327,7 @@ export default function CallBreakerGame() {
 
           {/* New Game / Exit */}
           <div className="grid grid-cols-2 gap-2 pb-2">
+
             <button
               onClick={newGame}
               className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-white transition-all hover:brightness-110 active:scale-95"
@@ -2330,7 +2335,7 @@ export default function CallBreakerGame() {
                 background: "#1e6091",
                 boxShadow: "0 4px 14px rgba(99,102,241,0.35)",
               }}
-            >
+              >
               <svg
                 width={13}
                 height={13}
@@ -2338,13 +2343,16 @@ export default function CallBreakerGame() {
                 stroke="currentColor"
                 strokeWidth={2.5}
                 viewBox="0 0 24 24"
-              >
+                >
                 <polyline points="1 4 1 10 7 10" />
                 <path d="M3.51 15a9 9 0 1 0 .49-3.5" />
               </svg>
               NEW GAME
             </button>
+        
             <button
+
+             onClick={newGame}
               className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-white hover:bg-white/10 transition-all active:scale-95"
               style={{
                 background: "#76c893",
@@ -2516,28 +2524,8 @@ export default function CallBreakerGame() {
             </div>
           </div>
 
-          {/* Chat/Emoji */}
-          <div
-            className="flex gap-2 mt-auto pt-2"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
-          >
-            {[
-              { icon: "💬", label: "CHAT" },
-              { icon: "😊", label: "EMOJI" },
-            ].map((b) => (
-              <button
-                key={b.label}
-                className="flex flex-1 flex-col items-center gap-0.5 py-2 rounded-xl text-white text-xs font-semibold hover:bg-white/10 transition-colors"
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                }}
-              >
-                <span className="text-base">{b.icon}</span>
-                {b.label}
-              </button>
-            ))}
-          </div>
+      
+         
         </div>
       </div>
 
