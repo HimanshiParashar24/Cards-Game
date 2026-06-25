@@ -128,7 +128,7 @@ const FirstPage: React.FC<FirstPageProps> = ({ onPlay }) => {
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,#003A8C_0%,#021230_70%)]" />
 
         {/* Light Rays */}
-        <div className="absolute left-1/2 top-0 h-full w-[700px] -translate-x-1/2 bg-gradient-to-b from-blue-400/20 to-transparent blur-3xl" />
+        <div className="absolute left-1/2 top-0 h-full w-[700px] -translate-x-1/2 bg-gradient-to-b from-blue-400/20 to-transparent blur-3xl pointer-events-none" />
 
         {/* Floating Particles */}
         {[...Array(40)].map((_, i) => (
@@ -162,25 +162,25 @@ const FirstPage: React.FC<FirstPageProps> = ({ onPlay }) => {
         </div>
 
         {/* Floating Cards */}
-        <div className="bg-card-left absolute left-[8%] top-[22%] h-64 w-44 rounded-3xl border border-blue-300/20 bg-blue-900/10 backdrop-blur-md">
+        <div className="bg-card-left absolute left-[8%] top-[22%] h-64 w-44 rounded-3xl border border-blue-300/20 bg-blue-900/10 backdrop-blur-md pointer-events-none">
           <div className="flex h-full items-center justify-center text-[120px] text-white/10">
             ♠
           </div>
         </div>
 
-        <div className="bg-card-right absolute right-[10%] top-[20%] h-64 w-44 rounded-3xl border border-blue-300/20 bg-blue-900/10 backdrop-blur-md">
+        <div className="bg-card-right absolute right-[10%] top-[20%] h-64 w-44 rounded-3xl border border-blue-300/20 bg-blue-900/10 backdrop-blur-md pointer-events-none">
           <div className="flex h-full items-center justify-center text-[120px] text-white/10">
             ♦
           </div>
         </div>
 
-        <div className="bg-card-left absolute bottom-[12%] left-[10%] h-64 w-44 rounded-3xl border border-blue-300/20 bg-blue-900/10 backdrop-blur-md">
+        <div className="bg-card-left absolute bottom-[12%] left-[10%] h-64 w-44 rounded-3xl border border-blue-300/20 bg-blue-900/10 backdrop-blur-md pointer-events-none">
           <div className="flex h-full items-center justify-center text-[120px] text-white/10">
             ♥
           </div>
         </div>
 
-        <div className="bg-card-right absolute bottom-[12%] right-[10%] h-64 w-44 rounded-3xl border border-blue-300/20 bg-blue-900/10 backdrop-blur-md">
+        <div className="bg-card-right absolute bottom-[12%] right-[10%] h-64 w-44 rounded-3xl border border-blue-300/20 bg-blue-900/10 backdrop-blur-md pointer-events-none">
           <div className="flex h-full items-center justify-center text-[120px] text-white/10">
             ♣
           </div>
@@ -228,30 +228,27 @@ const FirstPage: React.FC<FirstPageProps> = ({ onPlay }) => {
           </div>
 
           {/* Platform Glow */}
-          <div className="absolute bottom-[180px] h-10 w-[450px] rounded-full bg-cyan-400/30 blur-2xl" />
+          <div className="absolute bottom-[180px] h-10 w-[450px] rounded-full bg-cyan-400/30 blur-2xl pointer-events-none" />
 
           {/* Play Button */}
           <button
             onClick={onPlay}
-            className="
+            disabled={loading < 100}
+            className={`
               play-btn
               mt-10
               h-[65px]
               w-[250px]
               rounded-[28px]
               border-4
-              border-[#77ff77]
-              bg-gradient-to-b
-              from-[#53ff38]
-              via-[#1fd61f]
-              to-[#0ea90e]
               text-[32px]
               font-black
               text-white
               transition-all
-              hover:scale-105
-              active:scale-95
-            "
+              ${loading < 100 
+                ? "border-gray-500 bg-gray-600 opacity-50 cursor-not-allowed" 
+                : "border-[#77ff77] bg-gradient-to-b from-[#53ff38] via-[#1fd61f] to-[#0ea90e] hover:scale-105 active:scale-95 cursor-pointer"}
+            `}
           >
            PLAY
           </button>
