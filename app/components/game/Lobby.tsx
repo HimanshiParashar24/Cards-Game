@@ -86,7 +86,14 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
     // Auto-join if URL parameter exists
     const searchParams = new URLSearchParams(window.location.search);
     const roomParam = searchParams.get("room");
-    if (roomParam) {
+    if (roomParam && savedName) {
+      const code = roomParam.trim().toUpperCase();
+      setInputCode(code);
+      setLoading(true);
+      joinRoom(code, false, savedId, savedName)
+        .catch((err) => console.error("Auto-join failed:", err))
+        .finally(() => setLoading(false));
+    } else if (roomParam) {
       setInputCode(roomParam.toUpperCase());
     }
   }, []);
@@ -96,6 +103,16 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
     if (!playerName.trim()) return;
     localStorage.setItem("cb_player_name", playerName.trim());
     setNameSubmitted(true);
+
+    const searchParams = new URLSearchParams(window.location.search);
+    const roomParam = searchParams.get("room");
+    if (roomParam) {
+      const code = roomParam.trim().toUpperCase();
+      setLoading(true);
+      joinRoom(code, false, playerId, playerName.trim())
+        .catch((err) => console.error("Auto-join failed:", err))
+        .finally(() => setLoading(false));
+    }
   };
 
   // ── Firebase Realtime Sync for Rooms ─────────────────────────────────────
@@ -145,7 +162,7 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
 
   // ── Simulated User Joining Effect (Demo Mode) ───────────────────────────
   useEffect(() => {
-    if (!isDemoMode || !roomCode) return;
+    if (!isDemoMode || !roomCode || isDemoPrivate) return;
 
     const guests = [
       { id: "bot_rohan", name: "Rohan_Pro", isReady: false, isHost: false },
@@ -279,11 +296,7 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
       }
     } catch (err: any) {
       console.error(err);
-      setErrorMessage("Firebase offline. Launching Demo Multiplayer Matchmaking...");
-      setTimeout(() => {
-        setErrorMessage("");
-        startDemoRoom(false);
-      }, 1500);
+      startDemoRoom(false);
     } finally {
       setLoading(false);
     }
@@ -297,11 +310,7 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
       await createRoom(true);
     } catch (err: any) {
       console.error(err);
-      setErrorMessage("Firebase offline. Launching Demo Private Room...");
-      setTimeout(() => {
-        setErrorMessage("");
-        startDemoRoom(true);
-      }, 1500);
+      startDemoRoom(true);
     } finally {
       setLoading(false);
     }
@@ -349,20 +358,16 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
     } catch (err: any) {
       console.error(err);
       if (code.startsWith("DEMO") || err.message.includes("timed out") || err.message.includes("Connection")) {
-        setErrorMessage("Firebase offline. Connecting to Demo Room...");
-        setTimeout(() => {
-          setErrorMessage("");
-          setIsDemoMode(true);
-          setIsDemoPrivate(true);
-          setRoomCode(code.startsWith("DEMO") ? code : "DEMO-INV");
-          setIsRoomHost(false);
-          setIsReady(false);
-          setRoomPlayers([
-            { id: "player_creator", name: "HostPlayer", isReady: true, isHost: true },
-            { id: playerId, name: playerName, isReady: false, isHost: false }
-          ]);
-          setActiveTab("room");
-        }, 1500);
+        setIsDemoMode(true);
+        setIsDemoPrivate(true);
+        setRoomCode(code.startsWith("DEMO") ? code : "DEMO-INV");
+        setIsRoomHost(false);
+        setIsReady(false);
+        setRoomPlayers([
+          { id: "player_creator", name: "HostPlayer", isReady: true, isHost: true },
+          { id: playerId, name: playerName, isReady: false, isHost: false }
+        ]);
+        setActiveTab("room");
       } else {
         setErrorMessage(err.message);
       }
@@ -371,7 +376,7 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
     }
   };
 
-  const joinRoom = async (code: string, isHost: boolean) => {
+  const joinRoom = async (code: string, isHost: boolean, overrideId?: string, overrideName?: string) => {
     const roomRef = ref(db, `rooms/${code}`);
     const snapshot = await withTimeout(get(roomRef));
 
@@ -389,15 +394,18 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
       throw new Error("Room is already full (max 4 players).");
     }
 
+    const activeId = overrideId || playerId;
+    const activeName = overrideName || playerName;
+
     const mySelf: LobbyPlayer = {
-      id: playerId,
-      name: playerName,
+      id: activeId,
+      name: activeName,
       isReady: false,
       isHost: isHost
     };
 
     // Add to players list
-    await withTimeout(set(ref(db, `rooms/${code}/players/${playerId}`), mySelf));
+    await withTimeout(set(ref(db, `rooms/${code}/players/${activeId}`), mySelf));
     setRoomCode(code);
     setIsRoomHost(isHost);
     setIsReady(false);
