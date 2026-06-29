@@ -300,6 +300,12 @@ export function useCallBreakerGame(multiplayerOpts?: {
   // ── Start next round ─────────────────────────────────────────────────────
   const startNextRound = useCallback(() => {
     if (isMultiplayer && !isHost) {
+      if (roomId.startsWith("DEMO")) {
+        const channel = new BroadcastChannel(`cb_game_demo_${roomId}`);
+        channel.postMessage({ type: "nextRound" });
+        channel.close();
+        return;
+      }
       set(ref(db, `rooms/${roomId}/actions/nextRoundTrigger`), true);
       return;
     }
@@ -384,6 +390,13 @@ export function useCallBreakerGame(multiplayerOpts?: {
       }
 
       if (isMultiplayer && !isHost && !bypassTurnCheck) {
+        if (roomId.startsWith("DEMO")) {
+          const channel = new BroadcastChannel(`cb_game_demo_${roomId}`);
+          channel.postMessage({ type: "play", card });
+          channel.close();
+          setSelectedCard(null);
+          return;
+        }
         set(ref(db, `rooms/${roomId}/players/${playerId}/playAction`), card);
         setSelectedCard(null);
         return;
@@ -436,6 +449,12 @@ export function useCallBreakerGame(multiplayerOpts?: {
   // ── New Game ─────────────────────────────────────────────────────────────
   const newGame = useCallback(() => {
     if (isMultiplayer && !isHost) {
+      if (roomId.startsWith("DEMO")) {
+        const channel = new BroadcastChannel(`cb_game_demo_${roomId}`);
+        channel.postMessage({ type: "restart" });
+        channel.close();
+        return;
+      }
       set(ref(db, `rooms/${roomId}/actions/restartTrigger`), true);
       return;
     }
@@ -504,6 +523,9 @@ export function useCallBreakerGame(multiplayerOpts?: {
           players: dealtPlayers,
           turnToken: `init_${Date.now()}`,
         };
+        const channel = new BroadcastChannel(`cb_game_demo_${roomId}`);
+        channel.postMessage({ type: "state", state: initialState });
+        channel.close();
         setGame(initialState);
         return;
       }
@@ -525,7 +547,12 @@ export function useCallBreakerGame(multiplayerOpts?: {
   // 2. Push State to Firebase (Host only)
   useEffect(() => {
     if (isMultiplayer && isHost && game.turnToken !== "init") {
-      if (roomId.startsWith("DEMO")) return;
+      if (roomId.startsWith("DEMO")) {
+        const channel = new BroadcastChannel(`cb_game_demo_${roomId}`);
+        channel.postMessage({ type: "state", state: game });
+        channel.close();
+        return;
+      }
       set(ref(db, `rooms/${roomId}/gameState`), game);
     }
   }, [game, isMultiplayer, isHost, roomId]);
@@ -610,6 +637,38 @@ export function useCallBreakerGame(multiplayerOpts?: {
       return () => off(actionsRef, "value", unsubscribe);
     }
   }, [isMultiplayer, isHost, roomId, startNextRound, newGame]);
+
+  // ── BroadcastChannel Sync for Gameplay Demo Mode ──────────────────────────
+  useEffect(() => {
+    if (!roomId.startsWith("DEMO")) return;
+
+    const channel = new BroadcastChannel(`cb_game_demo_${roomId}`);
+
+    channel.onmessage = (event) => {
+      const msg = event.data;
+      if (!msg) return;
+
+      if (isHost) {
+        if (msg.type === "bid") {
+          processBid(msg.bid, true, msg.trump);
+        } else if (msg.type === "play") {
+          playCard(msg.card, true);
+        } else if (msg.type === "nextRound") {
+          startNextRound();
+        } else if (msg.type === "restart") {
+          newGame();
+        }
+      } else {
+        if (msg.type === "state") {
+          setGame(msg.state);
+        }
+      }
+    };
+
+    return () => {
+      channel.close();
+    };
+  }, [roomId, isHost, processBid, playCard, startNextRound, newGame]);
 
   // Cleanup
   useEffect(() => {

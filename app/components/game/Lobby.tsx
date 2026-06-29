@@ -252,6 +252,66 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
     }
   }, [isDemoMode, isRoomHost, isReady, roomCode, playerId, onGameStart]);
 
+  // ── BroadcastChannel Sync for Demo Mode Lobby ──────────────────────────
+  useEffect(() => {
+    if (!isDemoMode || !roomCode) return;
+
+    const channel = new BroadcastChannel(`cb_demo_${roomCode}`);
+
+    channel.onmessage = (event) => {
+      const msg = event.data;
+      if (!msg) return;
+
+      if (isRoomHost) {
+        if (msg.type === "join") {
+          setRoomPlayers((prev) => {
+            if (prev.some((p) => p.id === msg.player.id)) return prev;
+            if (prev.length >= 4) return prev;
+            const updated = [...prev, msg.player];
+            channel.postMessage({ type: "players", players: updated });
+            return updated;
+          });
+        } else if (msg.type === "ready") {
+          setRoomPlayers((prev) => {
+            const updated = prev.map((p) =>
+              p.id === msg.playerId ? { ...p, isReady: msg.isReady } : p
+            );
+            channel.postMessage({ type: "players", players: updated });
+            return updated;
+          });
+        } else if (msg.type === "leave") {
+          setRoomPlayers((prev) => {
+            const updated = prev.filter((p) => p.id !== msg.playerId);
+            channel.postMessage({ type: "players", players: updated });
+            return updated;
+          });
+        }
+      } else {
+        if (msg.type === "players") {
+          setRoomPlayers(msg.players);
+        } else if (msg.type === "start") {
+          onGameStart(roomCode, playerId, isRoomHost, msg.players);
+        }
+      }
+    };
+
+    return () => {
+      channel.close();
+    };
+  }, [isDemoMode, roomCode, isRoomHost, playerId, onGameStart]);
+
+  // Guest join broadcast on mount
+  useEffect(() => {
+    if (isDemoMode && !isRoomHost && roomCode) {
+      const channel = new BroadcastChannel(`cb_demo_${roomCode}`);
+      channel.postMessage({
+        type: "join",
+        player: { id: playerId, name: playerName, isReady: false, isHost: false },
+      });
+      channel.close();
+    }
+  }, [isDemoMode, isRoomHost, roomCode, playerId, playerName]);
+
   const startDemoRoom = (isPrivate: boolean) => {
     setIsDemoMode(true);
     setIsDemoPrivate(isPrivate);
@@ -418,11 +478,15 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
   };
 
   // ── Leave Room ───────────────────────────────────────────────────────────
-  // ── Leave Room ───────────────────────────────────────────────────────────
   const leaveRoom = async () => {
     if (!roomCode) return;
 
     if (isDemoMode) {
+      if (!isRoomHost) {
+        const channel = new BroadcastChannel(`cb_demo_${roomCode}`);
+        channel.postMessage({ type: "leave", playerId: playerId });
+        channel.close();
+      }
       setIsDemoMode(false);
       setIsDemoPrivate(false);
       setRoomCode("");
@@ -477,6 +541,9 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
 
     if (isDemoMode) {
       setRoomPlayers(prev => prev.map(p => p.id === playerId ? { ...p, isReady: newReady } : p));
+      const channel = new BroadcastChannel(`cb_demo_${roomCode}`);
+      channel.postMessage({ type: "ready", playerId: playerId, isReady: newReady });
+      channel.close();
       return;
     }
 
@@ -583,6 +650,9 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
     }
 
     if (isDemoMode) {
+      const channel = new BroadcastChannel(`cb_demo_${roomCode}`);
+      channel.postMessage({ type: "start", players: finalPlayers });
+      channel.close();
       onGameStart(roomCode, playerId, isRoomHost, finalPlayers);
       return;
     }
