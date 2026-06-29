@@ -1,14 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { db, generateRoomCode } from "./firebase";
-import {
-  ref,
-  get,
-  set,
-  update,
-  onValue,
-  off
-} from "firebase/database";
+import { db, generateRoomCode, ref, get, set, update, onValue, off } from "./firebase";
 import { Avatar } from "./Avatar";
 import { Logo } from "./Logo";
 

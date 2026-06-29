@@ -23,8 +23,7 @@ import {
   createInitialState,
 } from "./gameEngine";
 import { getValidCards, botBid, botDecide } from "./botAI";
-import { db } from "./firebase";
-import { ref, set, update, onValue, off } from "firebase/database";
+import { db, ref, set, update, onValue, off } from "./firebase";
 
 function createMultiplayerPlaceholderState(initialPlayers: any[]): GameState {
   const players: PlayerState[] = initialPlayers.map((p) => ({
