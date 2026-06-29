@@ -78,15 +78,17 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
     // Auto-join if URL parameter exists
     const searchParams = new URLSearchParams(window.location.search);
     const roomParam = searchParams.get("room");
-    if (roomParam && savedName) {
+    if (roomParam) {
       const code = roomParam.trim().toUpperCase();
+      sessionStorage.setItem("cb_invite_room", code);
       setInputCode(code);
-      setLoading(true);
-      joinRoom(code, false, savedId, savedName)
-        .catch((err) => console.error("Auto-join failed:", err))
-        .finally(() => setLoading(false));
-    } else if (roomParam) {
-      setInputCode(roomParam.toUpperCase());
+      
+      if (savedName) {
+        setLoading(true);
+        joinRoom(code, false, savedId, savedName)
+          .catch((err) => console.error("Auto-join failed:", err))
+          .finally(() => setLoading(false));
+      }
     }
   }, []);
 
@@ -96,10 +98,8 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
     localStorage.setItem("cb_player_name", playerName.trim());
     setNameSubmitted(true);
 
-    const searchParams = new URLSearchParams(window.location.search);
-    const roomParam = searchParams.get("room");
-    if (roomParam) {
-      const code = roomParam.trim().toUpperCase();
+    const code = sessionStorage.getItem("cb_invite_room");
+    if (code) {
       setLoading(true);
       joinRoom(code, false, playerId, playerName.trim())
         .catch((err) => console.error("Auto-join failed:", err))
@@ -467,6 +467,7 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
     if (window.location.search.includes("room")) {
       window.history.replaceState({}, document.title, window.location.pathname);
     }
+    sessionStorage.removeItem("cb_invite_room");
   };
 
   // ── Leave Room ───────────────────────────────────────────────────────────
@@ -712,7 +713,7 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
               className="bg-slate-900/80 backdrop-blur-md p-6 rounded-2xl border border-blue-500/20 shadow-2xl shadow-blue-500/10"
             >
               <h2 className="text-xl font-black text-white text-center mb-4">
-                {typeof window !== "undefined" && new URLSearchParams(window.location.search).has("room")
+                {typeof window !== "undefined" && sessionStorage.getItem("cb_invite_room")
                   ? "You are Invited! Accept the Invite"
                   : "What's your Player Nickname?"}
               </h2>
@@ -731,7 +732,7 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
                   disabled={!playerName.trim()}
                   className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-black text-lg shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 disabled:pointer-events-none cursor-pointer"
                 >
-                  {typeof window !== "undefined" && new URLSearchParams(window.location.search).has("room")
+                  {typeof window !== "undefined" && sessionStorage.getItem("cb_invite_room")
                     ? "ACCEPT INVITE"
                     : "CONTINUE"}
                 </button>

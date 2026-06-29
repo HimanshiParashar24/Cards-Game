@@ -574,7 +574,6 @@ export function useCallBreakerGame(multiplayerOpts?: {
   // 4. Listen to Guest actions (Host only)
   useEffect(() => {
     if (isMultiplayer && isHost) {
-      if (roomId.startsWith("DEMO")) return;
       const playersRef = ref(db, `rooms/${roomId}/players`);
       const unsubscribe = onValue(playersRef, (snapshot) => {
         if (!snapshot.exists()) return;
@@ -616,7 +615,6 @@ export function useCallBreakerGame(multiplayerOpts?: {
   // 5. Listen to actions (Host only)
   useEffect(() => {
     if (isMultiplayer && isHost) {
-      if (roomId.startsWith("DEMO")) return;
       const actionsRef = ref(db, `rooms/${roomId}/actions`);
       const unsubscribe = onValue(actionsRef, (snapshot) => {
         if (!snapshot.exists()) return;

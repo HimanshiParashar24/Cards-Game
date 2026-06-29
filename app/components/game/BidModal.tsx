@@ -11,6 +11,7 @@ interface BidModalProps {
   onBid: (bid: number) => void;
   selectedTrump: Suit | null;
   setSelectedTrump: React.Dispatch<React.SetStateAction<Suit | null>>;
+  playerId: string;
 }
 
 export const BidModal = ({
@@ -19,6 +20,7 @@ export const BidModal = ({
   onBid,
   selectedTrump,
   setSelectedTrump,
+  playerId,
 }: BidModalProps) => {
   const [selectedBid, setSelectedBid] = useState<number>(selectedTrump ? 5 : 1);
   const currentBidder = players[biddingIndex];
@@ -31,9 +33,9 @@ export const BidModal = ({
 
   if (!currentBidder) return null;
 
-  const isHuman = currentBidder.isHuman;
-  const humanPlayer = players.find((p) => p.isHuman);
-  const humanHand = humanPlayer?.hand ?? [];
+  const isMyTurn = currentBidder.id === playerId;
+  const myPlayer = players.find((p) => p.id === playerId);
+  const myHand = myPlayer?.hand ?? [];
   const placedBids = players.filter((p) => p.bid !== null);
 
   const BID_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8];
@@ -60,7 +62,7 @@ export const BidModal = ({
             Place Your Bid !
           </div>
           <div className="text-[#00a6fb] text-sm mt-1">
-            {isHuman
+            {isMyTurn
               ? "How many tricks will you win this round?"
               : `${currentBidder.name} is bidding...`}
           </div>
@@ -122,7 +124,7 @@ export const BidModal = ({
           })}
         </div>
 
-        {isHuman && humanHand.length > 0 && (
+        {isMyTurn && myHand.length > 0 && (
           <div className="flex flex-col gap-2">
             <div className="text-[#0353a4] font-bold text-xs uppercase tracking-wider">
               Select a Trump Card
@@ -134,7 +136,7 @@ export const BidModal = ({
                 border: "1px solid rgba(255,255,255,0.06)",
               }}
             >
-              {humanHand.map((card) => (
+              {myHand.map((card) => (
                 <motion.div
                   key={`${card.rank}-${card.suit}`}
                   animate={{
@@ -165,7 +167,7 @@ export const BidModal = ({
           </div>
         )}
 
-        {isHuman ? (
+        {isMyTurn ? (
           <>
             <div className="flex flex-col gap-2">
               <div className="text-[#0353a4] text-xs font-bold tracking-wider">

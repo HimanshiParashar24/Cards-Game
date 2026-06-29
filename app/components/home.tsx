@@ -104,6 +104,7 @@ export default function CallBreakerGame({
               onBid={processBid}
               selectedTrump={selectedTrump}
               setSelectedTrump={setSelectedTrump}
+              playerId={multiplayerOpts?.playerId || you.id}
             />
           )}
       </AnimatePresence>
