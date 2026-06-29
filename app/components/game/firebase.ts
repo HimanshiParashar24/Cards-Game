@@ -8,6 +8,7 @@
 const listeners: { path: string; callback: (snapshot: any) => void }[] = [];
 const localCache: Record<string, any> = {};
 const pendingRequests: { path: string; resolve: (val: any) => void }[] = [];
+const processedActionIds = new Set<string>();
 
 let stateSocket: WebSocket | null = null;
 let actionsSocket: WebSocket | null = null;
@@ -20,7 +21,8 @@ function getLocalPlayerId(): string {
 function connectStateSocket(roomCode: string) {
   if (stateSocket && stateSocket.readyState !== WebSocket.CLOSED) return;
 
-  stateSocket = new WebSocket(`wss://ntfy.sh/cb_room_${roomCode}_state/ws`);
+  // Guests connect with since=all to immediately load the last cached state
+  stateSocket = new WebSocket(`wss://ntfy.sh/cb_room_${roomCode}_state/ws?since=all`);
   stateSocket.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
@@ -53,7 +55,8 @@ function connectStateSocket(roomCode: string) {
 function connectActionsSocket(roomCode: string) {
   if (actionsSocket && actionsSocket.readyState !== WebSocket.CLOSED) return;
 
-  actionsSocket = new WebSocket(`wss://ntfy.sh/cb_room_${roomCode}_actions/ws`);
+  // Host connects with since=all to sync background guest joins when returning from WhatsApp
+  actionsSocket = new WebSocket(`wss://ntfy.sh/cb_room_${roomCode}_actions/ws?since=all`);
   actionsSocket.onmessage = (event) => {
     try {
       const data = JSON.parse(event.data);
@@ -62,6 +65,12 @@ function connectActionsSocket(roomCode: string) {
         const myPlayerId = getLocalPlayerId();
         const isHost = localCache["rooms"]?.[roomCode]?.creator === myPlayerId;
         if (!isHost) return;
+
+        // Deduplicate cached guest actions
+        if (payload.actionId) {
+          if (processedActionIds.has(payload.actionId)) return;
+          processedActionIds.add(payload.actionId);
+        }
 
         if (payload.type === "request") {
           broadcastRoomState(roomCode);
@@ -100,9 +109,10 @@ function broadcastRoomState(roomCode: string) {
 }
 
 function sendActionToHost(roomCode: string, action: any) {
+  const actionId = "act_" + Math.random().toString(36).substr(2, 9) + "_" + Date.now();
   fetch(`https://ntfy.sh/cb_room_${roomCode}_actions`, {
     method: "POST",
-    body: JSON.stringify({ type: "clientAction", action }),
+    body: JSON.stringify({ type: "clientAction", actionId, action }),
     headers: {
       "Content-Type": "application/json"
     }
