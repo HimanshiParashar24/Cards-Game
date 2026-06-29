@@ -3,9 +3,12 @@ import { Logo } from "./Logo";
 
 interface TopBarProps {
   setShowRules: (show: boolean) => void;
+  onExit?: () => void;
+  roomId?: string;
+  onlineCount?: number;
 }
 
-export const TopBar = ({ setShowRules }: TopBarProps) => {
+export const TopBar = ({ setShowRules, onExit, roomId, onlineCount }: TopBarProps) => {
   return (
     <div
       className="flex items-center justify-between px-3 py-2 md:px-5 md:py-2.5 relative"
@@ -13,11 +16,13 @@ export const TopBar = ({ setShowRules }: TopBarProps) => {
     >
       <div className="flex items-center gap-2">
         <button
+          onClick={onExit}
           className="w-8 h-8 rounded-lg flex items-center justify-center text-white transition-colors hover:bg-white/10 cursor-pointer"
           style={{
             background: "rgba(255,255,255,0.07)",
             border: "1px solid rgba(255,255,255,0.12)",
           }}
+          title="Exit game"
         >
           <svg
             width={14}
@@ -33,12 +38,14 @@ export const TopBar = ({ setShowRules }: TopBarProps) => {
         <div className="flex flex-col leading-tight">
           <div className="flex flex-row items-center gap-4">
             <span className="text-[#0077b6] text-[12px] font-bold underline uppercase tracking-widest">
-              Room ID
+              Mode
             </span>
-            <span className="text-[#ff6700] font-bold text-xs">CB1234</span>
+            <span className="text-[#ff6700] font-bold text-xs">
+              {roomId ? `ROOM: ${roomId}` : "OFFLINE VS BOTS"}
+            </span>
           </div>
           <span className="text-[#76c893] text-xs font-semibold">
-            ● Online: 4
+            {roomId ? `● Players: ${onlineCount ?? 0} / 4` : "● Offline mode"}
           </span>
         </div>
       </div>

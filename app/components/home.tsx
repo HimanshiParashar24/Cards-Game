@@ -19,7 +19,20 @@ import { RoundResultModal } from "./game/RoundResultModal";
 import { GameOverModal } from "./game/GameOverModal";
 import { RulesModal } from "./game/RulesModal";
 
-export default function CallBreakerGame() {
+interface CallBreakerGameProps {
+  multiplayerOpts?: {
+    roomId: string;
+    playerId: string;
+    isHost: boolean;
+    initialPlayers: any[];
+  };
+  onExit?: () => void;
+}
+
+export default function CallBreakerGame({
+  multiplayerOpts,
+  onExit,
+}: CallBreakerGameProps = {}) {
   const {
     game,
     selectedTrump,
@@ -59,7 +72,7 @@ export default function CallBreakerGame() {
     activeBotId,
     validCardKeys,
     sortedPlayers,
-  } = useCallBreakerGame();
+  } = useCallBreakerGame(multiplayerOpts);
 
   return (
     <div
@@ -96,7 +109,12 @@ export default function CallBreakerGame() {
       </AnimatePresence>
 
       {/* TOP NAVBAR */}
-      <TopBar setShowRules={setShowRules} />
+      <TopBar
+        setShowRules={setShowRules}
+        onExit={onExit}
+        roomId={multiplayerOpts?.roomId}
+        onlineCount={multiplayerOpts ? game.players.length : undefined}
+      />
 
       {/* MAIN LAYOUT */}
       <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
@@ -173,7 +191,7 @@ export default function CallBreakerGame() {
             </button>
 
             <button
-              onClick={newGame}
+              onClick={onExit}
               className="flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm text-white hover:bg-white/10 transition-all active:scale-95 cursor-pointer"
               style={{
                 background: "#76c893",
@@ -198,7 +216,7 @@ export default function CallBreakerGame() {
         </div>
 
         {/* SIDEBAR SCOREBOARD */}
-        <ScoreBoard sortedPlayers={sortedPlayers} game={game} />
+        <ScoreBoard sortedPlayers={sortedPlayers} game={game} playerId={multiplayerOpts?.playerId} />
       </div>
 
       {/* MOBILE TOUCH DRAG GHOST */}

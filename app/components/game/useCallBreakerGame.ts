@@ -23,9 +23,57 @@ import {
   createInitialState,
 } from "./gameEngine";
 import { getValidCards, botBid, botDecide } from "./botAI";
+import { db } from "./firebase";
+import { ref, set, update, onValue, off } from "firebase/database";
 
-export function useCallBreakerGame() {
-  const [game, setGame] = useState<GameState>(createInitialState);
+function createMultiplayerPlaceholderState(initialPlayers: any[]): GameState {
+  const players: PlayerState[] = initialPlayers.map((p) => ({
+    id: p.id,
+    name: p.name,
+    totalScore: 0,
+    roundScore: 0,
+    hand: [],
+    isHuman: !p.id.startsWith("bot_"),
+    isOnline: true,
+    bid: null,
+    tricksWon: 0,
+  }));
+
+  return {
+    phase: "bidding",
+    currentRound: 1,
+    totalRounds: 5,
+    trumpSuit: "spades",
+    players,
+    currentTurnIndex: 0,
+    currentTrick: [],
+    completedTricks: [],
+    roundResults: [],
+    lastTrickWinner: null,
+    winnerMessage: "",
+    gameWinnerId: null,
+    biddingIndex: 0,
+    turnToken: "init",
+  };
+}
+
+export function useCallBreakerGame(multiplayerOpts?: {
+  roomId: string;
+  playerId: string;
+  isHost: boolean;
+  initialPlayers: any[];
+}) {
+  const isMultiplayer = !!multiplayerOpts;
+  const roomId = multiplayerOpts?.roomId ?? "";
+  const playerId = multiplayerOpts?.playerId ?? "you";
+  const isHost = multiplayerOpts ? multiplayerOpts.isHost : true;
+
+  const [game, setGame] = useState<GameState>(() => {
+    if (multiplayerOpts) {
+      return createMultiplayerPlaceholderState(multiplayerOpts.initialPlayers);
+    }
+    return createInitialState();
+  });
   const [selectedTrump, setSelectedTrump] = useState<Suit | null>(null);
   const [selectedCard, setSelectedCard] = useState<Card | null>(null);
   const [showRules, setShowRules] = useState(false);
@@ -140,7 +188,18 @@ export function useCallBreakerGame() {
 
   // ── Process a single bid (sound added) ───────────────────────────────────
   const processBid = useCallback(
-    (bid: number) => {
+    (bid: number, bypassTurnCheck = false, chosenTrump?: Suit | null) => {
+      const finalTrump = chosenTrump !== undefined ? chosenTrump : selectedTrump;
+
+      if (isMultiplayer && !isHost && !bypassTurnCheck) {
+        set(ref(db, `rooms/${roomId}/players/${playerId}/bidAction`), bid);
+        if (selectedTrump) {
+          set(ref(db, `rooms/${roomId}/players/${playerId}/trumpAction`), selectedTrump);
+        }
+        setSelectedTrump(null);
+        return;
+      }
+
       setGame((prev) => {
         if (prev.phase !== "bidding") return prev;
 
@@ -156,7 +215,7 @@ export function useCallBreakerGame() {
 
         return {
           ...prev,
-          trumpSuit: selectedTrump ?? prev.trumpSuit,
+          trumpSuit: finalTrump ?? prev.trumpSuit,
           players: updatedPlayers,
           biddingIndex: nextBiddingIndex,
           phase: allBid ? "playing" : "bidding",
@@ -165,14 +224,15 @@ export function useCallBreakerGame() {
         };
       });
 
+      setSelectedTrump(null);
       playSound("bidPlaced");
     },
-    [selectedTrump]
+    [selectedTrump, isMultiplayer, isHost, roomId, playerId, setSelectedTrump]
   );
 
-  // ── Auto-bid for bots ────────────────────────────────────────────────────
   useEffect(() => {
     if (game.phase !== "bidding") return;
+    if (isMultiplayer && !isHost) return;
     const biddingPlayer = game.players[game.biddingIndex];
     if (!biddingPlayer || biddingPlayer.isHuman) return;
 
@@ -208,7 +268,7 @@ export function useCallBreakerGame() {
     if (game.phase === "game_over") {
       setShowGameOverModal(true);
 
-      if (game.gameWinnerId === "you") {
+      if (game.gameWinnerId === playerId) {
         playSound("gameWin");
         setShowConfetti(true);
         setTimeout(() => {
@@ -218,7 +278,7 @@ export function useCallBreakerGame() {
         playSound("gameLose");
       }
     }
-  }, [game.phase, game.gameWinnerId]);
+  }, [game.phase, game.gameWinnerId, playerId]);
 
   // ── Shuffle sound when dealing starts ────────────────────────────────────
   useEffect(() => {
@@ -233,12 +293,17 @@ export function useCallBreakerGame() {
     setIsDealing(true);
     const initTimer = setTimeout(() => {
       setIsDealing(false);
-    }, 5000);
+    }, 1800);
     return () => clearTimeout(initTimer);
   }, []);
 
   // ── Start next round ─────────────────────────────────────────────────────
   const startNextRound = useCallback(() => {
+    if (isMultiplayer && !isHost) {
+      set(ref(db, `rooms/${roomId}/actions/nextRoundTrigger`), true);
+      return;
+    }
+
     if (game.currentRound >= game.totalRounds) {
       const sorted = [...game.players].sort(
         (a, b) => b.totalScore - a.totalScore,
@@ -283,18 +348,24 @@ export function useCallBreakerGame() {
       setSelectedTrump(null);
       setBotThinking(false);
     }, 1800);
-  }, [game.currentRound, game.totalRounds, game.players]);
+  }, [game.currentRound, game.totalRounds, game.players, isMultiplayer, isHost, roomId]);
 
   // ── Play a card (human) with sound ──────────────────────────────────────
   const playCard = useCallback(
-    (card: Card) => {
+    (card: Card, bypassTurnCheck = false) => {
       if (game.phase !== "playing") return;
       if (botThinking) {
         showToast("Wait for bot to play!", "error");
         return;
       }
       const currentPlayer = game.players[game.currentTurnIndex];
-      if (!currentPlayer?.isHuman) {
+      if (!currentPlayer) return;
+
+      const isMyTurn = bypassTurnCheck || (isMultiplayer
+        ? currentPlayer.id === playerId
+        : currentPlayer.isHuman);
+
+      if (!isMyTurn) {
         showToast("Not your turn!", "error");
         return;
       }
@@ -312,13 +383,19 @@ export function useCallBreakerGame() {
         return;
       }
 
+      if (isMultiplayer && !isHost && !bypassTurnCheck) {
+        set(ref(db, `rooms/${roomId}/players/${playerId}/playAction`), card);
+        setSelectedCard(null);
+        return;
+      }
+
       console.log("cardPlay called");
       playSound("cardPlay");
       setSelectedCard(null);
 
       setGame((prev) => {
         const player = prev.players[prev.currentTurnIndex];
-        if (!player?.isHuman) return prev;
+        if (!player) return prev;
         const newHand = player.hand.filter(
           (c) => !(c.rank === card.rank && c.suit === card.suit),
         );
@@ -348,7 +425,7 @@ export function useCallBreakerGame() {
         }
       });
     },
-    [game, botThinking, showToast],
+    [game, botThinking, showToast, isMultiplayer, isHost, roomId, playerId]
   );
 
   const humanPlay = useCallback(() => {
@@ -358,6 +435,11 @@ export function useCallBreakerGame() {
 
   // ── New Game ─────────────────────────────────────────────────────────────
   const newGame = useCallback(() => {
+    if (isMultiplayer && !isHost) {
+      set(ref(db, `rooms/${roomId}/actions/restartTrigger`), true);
+      return;
+    }
+
     if (botTimer.current) clearTimeout(botTimer.current);
     if (dealingTimer.current) clearTimeout(dealingTimer.current);
     if (bidTimer.current) clearTimeout(bidTimer.current);
@@ -372,10 +454,162 @@ export function useCallBreakerGame() {
 
     setIsDealing(true);
     dealingTimer.current = setTimeout(() => {
-      setGame(createInitialState());
+      if (isMultiplayer) {
+        const hands = dealHands(4, CARDS_PER_HAND);
+        const resetPlayers = game.players.map((p, idx) => ({
+          ...p,
+          hand: hands[idx],
+          totalScore: 0,
+          roundScore: 0,
+          bid: null,
+          tricksWon: 0,
+        }));
+        
+        const resetState: GameState = {
+          phase: "bidding",
+          currentRound: 1,
+          totalRounds: game.totalRounds,
+          trumpSuit: "spades",
+          players: resetPlayers,
+          currentTurnIndex: 0,
+          currentTrick: [],
+          completedTricks: [],
+          roundResults: [],
+          lastTrickWinner: null,
+          winnerMessage: "",
+          gameWinnerId: null,
+          biddingIndex: 0,
+          turnToken: `${Date.now()}_${Math.random()}`,
+        };
+        setGame(resetState);
+      } else {
+        setGame(createInitialState());
+      }
       setIsDealing(false);
     }, 1800);
-  }, []);
+  }, [isMultiplayer, isHost, roomId, game.players, game.totalRounds]);
+
+  // ── Firebase Multiplayer Sync ─────────────────────────────────────────────
+  // 1. Initial State Deal (Host only)
+  useEffect(() => {
+    if (isMultiplayer && isHost && game.turnToken === "init") {
+      if (roomId.startsWith("DEMO")) {
+        const hands = dealHands(4, CARDS_PER_HAND);
+        const dealtPlayers = game.players.map((p, idx) => ({
+          ...p,
+          hand: hands[idx],
+        }));
+        const initialState: GameState = {
+          ...game,
+          players: dealtPlayers,
+          turnToken: `init_${Date.now()}`,
+        };
+        setGame(initialState);
+        return;
+      }
+      const hands = dealHands(4, CARDS_PER_HAND);
+      const dealtPlayers = game.players.map((p, idx) => ({
+        ...p,
+        hand: hands[idx],
+      }));
+      const initialState: GameState = {
+        ...game,
+        players: dealtPlayers,
+        turnToken: `init_${Date.now()}`,
+      };
+      set(ref(db, `rooms/${roomId}/gameState`), initialState);
+      setGame(initialState);
+    }
+  }, [isMultiplayer, isHost, roomId, game]);
+
+  // 2. Push State to Firebase (Host only)
+  useEffect(() => {
+    if (isMultiplayer && isHost && game.turnToken !== "init") {
+      if (roomId.startsWith("DEMO")) return;
+      set(ref(db, `rooms/${roomId}/gameState`), game);
+    }
+  }, [game, isMultiplayer, isHost, roomId]);
+
+  // 3. Pull State from Firebase (Guests only)
+  useEffect(() => {
+    if (isMultiplayer && !isHost) {
+      if (roomId.startsWith("DEMO")) return;
+      const stateRef = ref(db, `rooms/${roomId}/gameState`);
+      const unsubscribe = onValue(stateRef, (snapshot) => {
+        if (snapshot.exists()) {
+          const val = snapshot.val() as GameState;
+          setGame(val);
+        }
+      });
+      return () => off(stateRef, "value", unsubscribe);
+    }
+  }, [isMultiplayer, isHost, roomId]);
+
+  // 4. Listen to Guest actions (Host only)
+  useEffect(() => {
+    if (isMultiplayer && isHost) {
+      if (roomId.startsWith("DEMO")) return;
+      const playersRef = ref(db, `rooms/${roomId}/players`);
+      const unsubscribe = onValue(playersRef, (snapshot) => {
+        if (!snapshot.exists()) return;
+        const playersData = snapshot.val();
+        
+        Object.keys(playersData).forEach((pId) => {
+          const p = playersData[pId];
+          
+          // Process guest bid
+          if (p.bidAction !== undefined && p.bidAction !== null) {
+            const pIdx = game.players.findIndex((pl) => pl.id === pId);
+            if (pIdx === game.biddingIndex && game.phase === "bidding") {
+              const bid = p.bidAction;
+              const trump = p.trumpAction || null;
+              update(ref(db, `rooms/${roomId}/players/${pId}`), { 
+                bidAction: null,
+                trumpAction: null 
+              });
+              processBid(bid, true, trump);
+            }
+          }
+          
+          // Process guest card play
+          if (p.playAction !== undefined && p.playAction !== null) {
+            const pIdx = game.players.findIndex((pl) => pl.id === pId);
+            if (pIdx === game.currentTurnIndex && game.phase === "playing") {
+              const card = p.playAction;
+              update(ref(db, `rooms/${roomId}/players/${pId}`), { playAction: null });
+              playCard(card, true);
+            }
+          }
+        });
+      });
+
+      return () => off(playersRef, "value", unsubscribe);
+    }
+  }, [isMultiplayer, isHost, roomId, game, processBid, playCard]);
+
+  // 5. Listen to actions (Host only)
+  useEffect(() => {
+    if (isMultiplayer && isHost) {
+      if (roomId.startsWith("DEMO")) return;
+      const actionsRef = ref(db, `rooms/${roomId}/actions`);
+      const unsubscribe = onValue(actionsRef, (snapshot) => {
+        if (!snapshot.exists()) return;
+        const actions = snapshot.val();
+        
+        if (actions.nextRoundTrigger) {
+          update(ref(db, `rooms/${roomId}/actions`), { nextRoundTrigger: null });
+          startNextRound();
+        }
+        
+        if (actions.restartTrigger) {
+          update(ref(db, `rooms/${roomId}/actions`), { restartTrigger: null });
+          newGame();
+        }
+      });
+      
+      return () => off(actionsRef, "value", unsubscribe);
+    }
+  }, [isMultiplayer, isHost, roomId, startNextRound, newGame]);
 
   // Cleanup
   useEffect(() => {
@@ -387,9 +621,9 @@ export function useCallBreakerGame() {
     };
   }, []);
 
-  // ── BOT TURN EFFECT (plays card sound) ───────────────────────────────────
   useEffect(() => {
     if (game.phase !== "playing") return;
+    if (isMultiplayer && !isHost) return;
     const current = game.players[game.currentTurnIndex];
     if (!current || current.isHuman) return;
 
@@ -450,41 +684,39 @@ export function useCallBreakerGame() {
     };
   }, [game.turnToken, game.phase, game.players, game.currentTurnIndex]);
 
-  // ── TRICK RESULT RESOLUTION (plays trick win sound after delay) ──────────
+  // ── TRICK RESULT RESOLUTION (plays trick win sound) ──────────
   useEffect(() => {
     if (game.phase !== "trick_result") return;
-
-    if (trickResultTimer.current) clearTimeout(trickResultTimer.current);
     const winnerId = trickWinner(game.currentTrick, game.trumpSuit ?? "spades");
     const winnerName = game.players.find((p) => p.id === winnerId)?.name ?? "?";
     showToast(`${winnerName} wins the trick!`, "success");
+    playSound("trickWin");
+  }, [game.phase, game.currentTrick, game.trumpSuit, game.players, showToast]);
 
+  // Host: resolve trick state update after delay
+  useEffect(() => {
+    if (game.phase !== "trick_result") return;
+    if (isMultiplayer && !isHost) return;
+
+    if (trickResultTimer.current) clearTimeout(trickResultTimer.current);
     trickResultTimer.current = setTimeout(() => {
-      playSound("trickWin");
       setGame((prev) => resolveTrickFromState(prev));
     }, TRICK_RESULT_DELAY);
 
     return () => {
       if (trickResultTimer.current) clearTimeout(trickResultTimer.current);
     };
-  }, [
-    game.phase,
-    game.currentTrick,
-    game.trumpSuit,
-    game.players,
-    resolveTrickFromState,
-    showToast,
-  ]);
+  }, [game.phase, isMultiplayer, isHost, resolveTrickFromState]);
 
   // ─────────────────────────────────────────────────────────────────────────
   // DERIVED STATE
   // ─────────────────────────────────────────────────────────────────────────
-  const you = game.players.find((p) => p.id === "you")!;
-  const opponents = game.players.filter((p) => !p.isHuman);
+  const you = game.players.find((p) => p.id === playerId) || game.players[0];
+  const opponents = game.players.filter((p) => p.id !== playerId);
   const isYourTurn =
     game.phase === "playing" &&
-    game.players[game.currentTurnIndex]?.id === "you";
-  const youHasPlayed = game.currentTrick.some((tc) => tc.playerId === "you");
+    game.players[game.currentTurnIndex]?.id === playerId;
+  const youHasPlayed = game.currentTrick.some((tc) => tc.playerId === playerId);
   const trumpIsRed =
     game.trumpSuit === "hearts" || game.trumpSuit === "diamonds";
   const trumpSym: Record<Suit, string> = {

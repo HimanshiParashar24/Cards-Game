@@ -5,10 +5,11 @@
 import React, { useEffect, useState } from "react";
 
 interface FirstPageProps {
-  onPlay: () => void;
+  onPlayOffline: () => void;
+  onPlayOnline: () => void;
 }
 
-const FirstPage: React.FC<FirstPageProps> = ({ onPlay }) => {
+const FirstPage: React.FC<FirstPageProps> = ({ onPlayOffline, onPlayOnline }) => {
   const [loading, setLoading] = useState(0);
 
   useEffect(() => {
@@ -18,7 +19,7 @@ const FirstPage: React.FC<FirstPageProps> = ({ onPlay }) => {
           clearInterval(interval);
           return 100;
         }
-        return prev + 2;
+        return prev + 10;
       });
     }, 100);
 
@@ -230,28 +231,50 @@ const FirstPage: React.FC<FirstPageProps> = ({ onPlay }) => {
           {/* Platform Glow */}
           <div className="absolute bottom-[180px] h-10 w-[450px] rounded-full bg-cyan-400/30 blur-2xl pointer-events-none" />
 
-          {/* Play Button */}
-          <button
-            onClick={onPlay}
-            disabled={loading < 100}
-            className={`
-              play-btn
-              mt-10
-              h-[65px]
-              w-[250px]
-              rounded-[28px]
-              border-4
-              text-[32px]
-              font-black
-              text-white
-              transition-all
-              ${loading < 100 
-                ? "border-gray-500 bg-gray-600 opacity-50 cursor-not-allowed" 
-                : "border-[#77ff77] bg-gradient-to-b from-[#53ff38] via-[#1fd61f] to-[#0ea90e] hover:scale-105 active:scale-95 cursor-pointer"}
-            `}
-          >
-           PLAY
-          </button>
+          {/* Play Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 mt-8 z-10">
+            <button
+              onClick={onPlayOffline}
+              disabled={loading < 100}
+              className={`
+                play-btn
+                h-[65px]
+                w-[240px]
+                rounded-[28px]
+                border-4
+                text-[20px]
+                font-black
+                text-white
+                transition-all
+                ${loading < 100 
+                  ? "border-gray-500 bg-gray-600 opacity-50 cursor-not-allowed" 
+                  : "border-[#77ff77] bg-gradient-to-b from-[#53ff38] via-[#1fd61f] to-[#0ea90e] hover:scale-105 active:scale-95 cursor-pointer"}
+              `}
+            >
+              PLAY VS BOTS
+            </button>
+
+            <button
+              onClick={onPlayOnline}
+              disabled={loading < 100}
+              className={`
+                play-btn
+                h-[65px]
+                w-[240px]
+                rounded-[28px]
+                border-4
+                text-[20px]
+                font-black
+                text-white
+                transition-all
+                ${loading < 100 
+                  ? "border-gray-500 bg-gray-600 opacity-50 cursor-not-allowed" 
+                  : "border-[#8ecae6] bg-gradient-to-b from-[#219ebc] via-[#023047] to-[#001524] hover:scale-105 active:scale-95 cursor-pointer"}
+              `}
+            >
+              MULTIPLAYER
+            </button>
+          </div>
 
           {/* Features Panel */}
           <div className="mt-12 w-[900px] rounded-3xl border border-white/10 bg-[#061c48]/90 backdrop-blur-xl">

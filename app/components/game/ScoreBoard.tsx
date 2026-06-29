@@ -6,9 +6,10 @@ import { ScoreNum } from "./ScoreNum";
 interface ScoreBoardProps {
   sortedPlayers: PlayerState[];
   game: GameState;
+  playerId?: string;
 }
 
-export const ScoreBoard = ({ sortedPlayers, game }: ScoreBoardProps) => {
+export const ScoreBoard = ({ sortedPlayers, game, playerId = "you" }: ScoreBoardProps) => {
   return (
     <div
       className="w-full md:w-64 lg:w-72 flex-shrink-0 p-3 flex flex-col gap-3 overflow-y-auto"
@@ -106,9 +107,9 @@ export const ScoreBoard = ({ sortedPlayers, game }: ScoreBoardProps) => {
         </span>
         <div className="flex flex-wrap gap-1.5">
           {game.roundResults.map((r, i) => {
-            const youScore = r.scores["you"] ?? 0;
-            const youBid = r.bids["you"] ?? 0;
-            const youWon = r.tricksWon["you"] ?? 0;
+            const youScore = r.scores[playerId] ?? 0;
+            const youBid = r.bids[playerId] ?? 0;
+            const youWon = r.tricksWon[playerId] ?? 0;
             return (
               <div key={i} className="flex flex-col items-center gap-0.5">
                 <div

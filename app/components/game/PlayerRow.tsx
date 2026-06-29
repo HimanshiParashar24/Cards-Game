@@ -20,7 +20,7 @@ export const PlayerRow = ({
   botThinking,
   game,
 }: PlayerRowProps) => {
-  const playedCard = game.currentTrick.find((tc) => tc.playerId === "you");
+  const playedCard = game.currentTrick.find((tc) => tc.playerId === you.id);
 
   return (
     <div
@@ -34,9 +34,9 @@ export const PlayerRow = ({
           : "0 0 6px rgba(59,130,246,0.15)",
       }}
     >
-      <Avatar id="you" name="You" size={44} online />
+      <Avatar id={you.id} name={you.name} size={44} online />
       <div>
-        <div className="text-[#ffffff] font-bold text-sm">You</div>
+        <div className="text-[#ffffff] font-bold text-sm">{you.name}</div>
         <ScoreNum v={you.totalScore} size="lg" />
       </div>
       {you.bid !== null && (
