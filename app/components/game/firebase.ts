@@ -1,104 +1,135 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// WEBSOCKET-BASED ZERO-CONFIG MULTIPLAYER ENGINE
+// NTFY.SH PUBLIC BROKER MULTIPLAYER ENGINE
 // ─────────────────────────────────────────────────────────────────────────────
-// This file replaces the Firebase SDK with a lightweight WebSocket broker
-// that runs over a public server, enabling instant real-time multiplayer 
-// between any two devices (mobile or desktop) globally with zero setup.
+// This file replaces the Firebase SDK with a lightweight pub/sub sync engine
+// over the free public broker ntfy.sh. It connects host and guest devices 
+// instantly across mobile networks, Wi-Fi, and desktop browsers globally.
 
-let socket: WebSocket | null = null;
 const listeners: { path: string; callback: (snapshot: any) => void }[] = [];
 const localCache: Record<string, any> = {};
+const pendingRequests: { path: string; resolve: (val: any) => void }[] = [];
+
+let stateSocket: WebSocket | null = null;
+let actionsSocket: WebSocket | null = null;
 
 function getLocalPlayerId(): string {
   if (typeof window === "undefined") return "unknown";
   return localStorage.getItem("cb_player_id") || "unknown";
 }
 
-function getSocket(): WebSocket {
-  if (socket && (socket.readyState === WebSocket.CONNECTING || socket.readyState === WebSocket.OPEN)) {
-    return socket;
-  }
+function connectStateSocket(roomCode: string) {
+  if (stateSocket && stateSocket.readyState !== WebSocket.CLOSED) return;
 
-  socket = new WebSocket("wss://javascript.info/article/websocket/chat");
-
-  socket.onmessage = (event) => {
+  stateSocket = new WebSocket(`wss://ntfy.sh/cb_room_${roomCode}_state/ws`);
+  stateSocket.onmessage = (event) => {
     try {
-      const text = event.data as string;
-      if (!text.startsWith("cb_room_")) return;
+      const data = JSON.parse(event.data);
+      if (data.event === "message") {
+        const payload = JSON.parse(data.message);
+        if (payload.type === "roomState") {
+          const myPlayerId = getLocalPlayerId();
+          const isHost = localCache["rooms"]?.[roomCode]?.creator === myPlayerId;
+          if (isHost) return; // Host ignores state broadcasts
 
-      const colonIdx = text.indexOf(":");
-      if (colonIdx === -1) return;
+          if (!localCache["rooms"]) {
+            localCache["rooms"] = {};
+          }
+          localCache["rooms"][roomCode] = payload.roomData;
 
-      const header = text.slice(0, colonIdx);
-      const payloadStr = text.slice(colonIdx + 1);
-
-      const parts = header.split("_");
-      const currentRoomCode = parts[2];
-
-      const payload = JSON.parse(payloadStr);
-      handleIncomingMessage(currentRoomCode, payload);
-    } catch (err) {
-      // Ignore parse errors from other chat messages
+          resolvePendingRequests(roomCode);
+          triggerListeners(roomCode);
+        }
+      }
+    } catch (e) {
+      // Ignore parse errors
     }
   };
-
-  socket.onclose = () => {
-    setTimeout(() => {
-      getSocket();
-    }, 1000);
+  stateSocket.onclose = () => {
+    stateSocket = null;
+    setTimeout(() => connectStateSocket(roomCode), 1000);
   };
-
-  return socket;
 }
 
-function handleIncomingMessage(roomCode: string, payload: any) {
-  const myPlayerId = getLocalPlayerId();
+function connectActionsSocket(roomCode: string) {
+  if (actionsSocket && actionsSocket.readyState !== WebSocket.CLOSED) return;
 
-  if (payload.type === "roomState") {
-    // If we are the Host, ignore other state broadcasts (we are the server)
-    const isHost = localCache["rooms"]?.[roomCode]?.creator === myPlayerId;
-    if (isHost) return;
+  actionsSocket = new WebSocket(`wss://ntfy.sh/cb_room_${roomCode}_actions/ws`);
+  actionsSocket.onmessage = (event) => {
+    try {
+      const data = JSON.parse(event.data);
+      if (data.event === "message") {
+        const payload = JSON.parse(data.message);
+        const myPlayerId = getLocalPlayerId();
+        const isHost = localCache["rooms"]?.[roomCode]?.creator === myPlayerId;
+        if (!isHost) return;
 
-    // Guest updates local cache to match Host's broadcasted state
-    if (!localCache["rooms"]) {
-      localCache["rooms"] = {};
+        if (payload.type === "request") {
+          broadcastRoomState(roomCode);
+        } else if (payload.type === "clientAction") {
+          const action = payload.action;
+          if (action.type === "set") {
+            setInCache(action.path, action.value);
+          } else if (action.type === "update") {
+            updateInCache(action.path, action.value);
+          }
+          broadcastRoomState(roomCode);
+          triggerListeners(roomCode);
+        }
+      }
+    } catch (e) {
+      // Ignore parse errors
     }
-    localCache["rooms"][roomCode] = payload.roomData;
-
-    triggerListeners(roomCode);
-  } else if (payload.type === "clientAction") {
-    // Host receives and processes guest actions
-    const isHost = localCache["rooms"]?.[roomCode]?.creator === myPlayerId;
-    if (!isHost) return;
-
-    const action = payload.action;
-    if (action.type === "set") {
-      setInCache(action.path, action.value);
-    } else if (action.type === "update") {
-      updateInCache(action.path, action.value);
-    }
-
-    // Broadcast the updated state back to everyone
-    broadcastRoomState(roomCode);
-
-    // Trigger host's own listeners
-    triggerListeners(roomCode);
-  }
+  };
+  actionsSocket.onclose = () => {
+    actionsSocket = null;
+    setTimeout(() => connectActionsSocket(roomCode), 1000);
+  };
 }
 
 function broadcastRoomState(roomCode: string) {
   const roomData = localCache["rooms"]?.[roomCode];
   if (!roomData) return;
-  const ws = getSocket();
-  if (ws.readyState === WebSocket.OPEN) {
-    ws.send(`cb_room_${roomCode}:` + JSON.stringify({ type: "roomState", roomData }));
-  }
+
+  fetch(`https://ntfy.sh/cb_room_${roomCode}_state`, {
+    method: "POST",
+    body: JSON.stringify({ type: "roomState", roomData }),
+    headers: {
+      "Content-Type": "application/json"
+    }
+  }).catch((err) => console.error("Failed to broadcast state:", err));
 }
 
 function sendActionToHost(roomCode: string, action: any) {
-  const ws = getSocket();
-  if (ws.readyState === WebSocket.OPEN) {
-    ws.send(`cb_room_${roomCode}:` + JSON.stringify({ type: "clientAction", action }));
+  fetch(`https://ntfy.sh/cb_room_${roomCode}_actions`, {
+    method: "POST",
+    body: JSON.stringify({ type: "clientAction", action }),
+    headers: {
+      "Content-Type": "application/json"
+    }
+  }).catch((err) => console.error("Failed to send action:", err));
+}
+
+function sendRequestToHost(roomCode: string) {
+  fetch(`https://ntfy.sh/cb_room_${roomCode}_actions`, {
+    method: "POST",
+    body: JSON.stringify({ type: "request" }),
+    headers: {
+      "Content-Type": "application/json"
+    }
+  }).catch((err) => console.error("Failed to send request:", err));
+}
+
+function resolvePendingRequests(roomCode: string) {
+  for (let i = pendingRequests.length - 1; i >= 0; i--) {
+    const req = pendingRequests[i];
+    const parts = req.path.split("/");
+    if (parts[1] === roomCode) {
+      const val = getSliceOfCache(req.path);
+      if (val !== null && val !== undefined) {
+        req.resolve(val);
+        pendingRequests.splice(i, 1);
+      }
+    }
   }
 }
 
@@ -131,29 +162,6 @@ function setInCache(path: string, value: any) {
     delete current[lastKey];
   } else {
     current[lastKey] = value;
-  }
-}
-
-// Custom simple transactions support
-export async function runTransaction(dbRef: { path: string }, transactionUpdate: (currentData: any) => any) {
-  const parts = dbRef.path.split("/");
-  const roomCode = parts[1];
-  const myPlayerId = getLocalPlayerId();
-  const isHost = localCache["rooms"]?.[roomCode]?.creator === myPlayerId;
-
-  if (isHost) {
-    const currentVal = getSliceOfCache(dbRef.path);
-    const newVal = transactionUpdate(currentVal);
-    setInCache(dbRef.path, newVal);
-    broadcastRoomState(roomCode);
-    triggerListeners(roomCode);
-    return { committed: true, snapshot: { val: () => newVal } };
-  } else {
-    // Guests can't easily run transaction, we just update it
-    const currentVal = getSliceOfCache(dbRef.path);
-    const newVal = transactionUpdate(currentVal);
-    sendActionToHost(roomCode, { type: "set", path: dbRef.path, value: newVal });
-    return { committed: true, snapshot: { val: () => newVal } };
   }
 }
 
@@ -198,8 +206,6 @@ export function ref(database: any, path: string) {
 }
 
 export async function set(dbRef: { path: string }, value: any) {
-  getSocket();
-
   const parts = dbRef.path.split("/");
   const roomCode = parts[1];
   const myPlayerId = getLocalPlayerId();
@@ -208,17 +214,18 @@ export async function set(dbRef: { path: string }, value: any) {
   const isHost = parts.length === 2 || localCache["rooms"]?.[roomCode]?.creator === myPlayerId;
 
   if (isHost) {
+    connectActionsSocket(roomCode);
+    connectStateSocket(roomCode);
     setInCache(dbRef.path, value);
     broadcastRoomState(roomCode);
     triggerListeners(roomCode);
   } else {
+    connectStateSocket(roomCode);
     sendActionToHost(roomCode, { type: "set", path: dbRef.path, value });
   }
 }
 
 export async function update(dbRef: { path: string }, value: any) {
-  getSocket();
-
   const parts = dbRef.path.split("/");
   const roomCode = parts[1];
   const myPlayerId = getLocalPlayerId();
@@ -226,33 +233,74 @@ export async function update(dbRef: { path: string }, value: any) {
   const isHost = localCache["rooms"]?.[roomCode]?.creator === myPlayerId;
 
   if (isHost) {
+    connectActionsSocket(roomCode);
+    connectStateSocket(roomCode);
     updateInCache(dbRef.path, value);
     broadcastRoomState(roomCode);
     triggerListeners(roomCode);
   } else {
+    connectStateSocket(roomCode);
     sendActionToHost(roomCode, { type: "update", path: dbRef.path, value });
   }
 }
 
 export async function get(dbRef: { path: string }) {
-  getSocket();
-  // Small delay to allow initial WebSocket sync on join
-  await new Promise((resolve) => setTimeout(resolve, 250));
+  const parts = dbRef.path.split("/");
+  const roomCode = parts[1];
 
   const value = getSliceOfCache(dbRef.path);
-  return {
-    exists: () => value !== null && value !== undefined,
-    val: () => value,
-  };
+  if (value !== null && value !== undefined) {
+    return {
+      exists: () => true,
+      val: () => value,
+    };
+  }
+
+  if (roomCode) {
+    connectStateSocket(roomCode);
+    // Request state from host
+    sendRequestToHost(roomCode);
+  }
+
+  return new Promise<any>((resolve) => {
+    const timeout = setTimeout(() => {
+      const idx = pendingRequests.findIndex(r => r.path === dbRef.path && r.resolve === resolve);
+      if (idx !== -1) pendingRequests.splice(idx, 1);
+      resolve({
+        exists: () => false,
+        val: () => null,
+      });
+    }, 1800);
+
+    pendingRequests.push({
+      path: dbRef.path,
+      resolve: (val) => {
+        clearTimeout(timeout);
+        resolve({
+          exists: () => val !== null && val !== undefined,
+          val: () => val,
+        });
+      },
+    });
+  });
 }
 
 export function onValue(dbRef: { path: string }, callback: (snapshot: any) => void) {
-  getSocket();
+  const parts = dbRef.path.split("/");
+  const roomCode = parts[1];
+  const myPlayerId = getLocalPlayerId();
+
+  if (roomCode) {
+    const isHost = localCache["rooms"]?.[roomCode]?.creator === myPlayerId;
+    if (isHost) {
+      connectActionsSocket(roomCode);
+    }
+    connectStateSocket(roomCode);
+  }
 
   const listener = { path: dbRef.path, callback };
   listeners.push(listener);
 
-  // Trigger immediately with cached value
   const value = getSliceOfCache(dbRef.path);
   callback({
     exists: () => value !== null && value !== undefined,
@@ -272,6 +320,27 @@ export function off(dbRef: { path: string }, eventType: string, callback?: any) 
     if (listeners[i].path === dbRef.path) {
       listeners.splice(i, 1);
     }
+  }
+}
+
+export async function runTransaction(dbRef: { path: string }, transactionUpdate: (currentData: any) => any) {
+  const parts = dbRef.path.split("/");
+  const roomCode = parts[1];
+  const myPlayerId = getLocalPlayerId();
+  const isHost = localCache["rooms"]?.[roomCode]?.creator === myPlayerId;
+
+  if (isHost) {
+    const currentVal = getSliceOfCache(dbRef.path);
+    const newVal = transactionUpdate(currentVal);
+    setInCache(dbRef.path, newVal);
+    broadcastRoomState(roomCode);
+    triggerListeners(roomCode);
+    return { committed: true, snapshot: { val: () => newVal } };
+  } else {
+    const currentVal = getSliceOfCache(dbRef.path);
+    const newVal = transactionUpdate(currentVal);
+    sendActionToHost(roomCode, { type: "set", path: dbRef.path, value: newVal });
+    return { committed: true, snapshot: { val: () => newVal } };
   }
 }
 

@@ -712,7 +712,9 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
               className="bg-slate-900/80 backdrop-blur-md p-6 rounded-2xl border border-blue-500/20 shadow-2xl shadow-blue-500/10"
             >
               <h2 className="text-xl font-black text-white text-center mb-4">
-                What's your Player Nickname?
+                {typeof window !== "undefined" && new URLSearchParams(window.location.search).has("room")
+                  ? "You are Invited! Accept the Invite"
+                  : "What's your Player Nickname?"}
               </h2>
               <form onSubmit={handleNameSubmit} className="flex flex-col gap-4">
                 <input
@@ -729,7 +731,9 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
                   disabled={!playerName.trim()}
                   className="w-full py-3.5 rounded-xl bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-black text-lg shadow-lg shadow-blue-500/20 hover:scale-105 active:scale-95 transition-all disabled:opacity-50 disabled:scale-100 disabled:pointer-events-none cursor-pointer"
                 >
-                  CONTINUE
+                  {typeof window !== "undefined" && new URLSearchParams(window.location.search).has("room")
+                    ? "ACCEPT INVITE"
+                    : "CONTINUE"}
                 </button>
                 <button
                   type="button"
