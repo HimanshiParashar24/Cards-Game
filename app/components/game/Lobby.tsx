@@ -4,13 +4,21 @@ import { db, generateRoomCode, ref, get, set, update, onValue, off } from "./fir
 import { Avatar } from "./Avatar";
 import { Logo } from "./Logo";
 
-function withTimeout<T>(promise: Promise<T>, timeoutMs = 3000): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, timeoutMs = 8000): Promise<T> {
   return Promise.race([
     promise,
     new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error("Connection timed out.")), timeoutMs)
+      setTimeout(() => reject(new Error("Connection timed out. Please try again.")), timeoutMs)
     )
   ]);
+}
+
+function setRoomUrl(code: string) {
+  window.history.replaceState({}, document.title, `${window.location.pathname}?room=${code}`);
+}
+
+function clearRoomUrl() {
+  window.history.replaceState({}, document.title, window.location.pathname);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -85,8 +93,14 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
       
       if (savedName) {
         setLoading(true);
-        joinRoom(code, false, savedId, savedName)
-          .catch((err) => console.error("Auto-join failed:", err))
+        joinRoomWithRetry(code, false, savedId, savedName)
+          .catch((err) => {
+            console.error("Auto-join failed:", err);
+            setErrorMessage(
+              err.message ||
+                "Could not join this table. Ask your friend to keep the invite page open and try again."
+            );
+          })
           .finally(() => setLoading(false));
       }
     }
@@ -101,8 +115,14 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
     const code = sessionStorage.getItem("cb_invite_room");
     if (code) {
       setLoading(true);
-      joinRoom(code, false, playerId, playerName.trim())
-        .catch((err) => console.error("Auto-join failed:", err))
+      joinRoomWithRetry(code, false, playerId, playerName.trim())
+        .catch((err) => {
+          console.error("Auto-join failed:", err);
+          setErrorMessage(
+            err.message ||
+              "Could not join this table. Ask your friend to keep the invite page open and try again."
+          );
+        })
         .finally(() => setLoading(false));
     }
   };
@@ -326,7 +346,6 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
 
       if (snapshot.exists()) {
         const rooms = snapshot.val() as Record<string, RoomData>;
-        // Find public, waiting room with < 4 players
         const availableRoom = Object.values(rooms).find(
           (r) =>
             !r.private &&
@@ -340,15 +359,13 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
       }
 
       if (targetRoomCode) {
-        // Join existing room
         await joinRoom(targetRoomCode, false);
       } else {
-        // Create new public room
         await createRoom(false);
       }
     } catch (err: any) {
       console.error(err);
-      startDemoRoom(false);
+      setErrorMessage(err.message || "Could not connect. Check your internet and try again.");
     } finally {
       setLoading(false);
     }
@@ -362,7 +379,7 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
       await createRoom(true);
     } catch (err: any) {
       console.error(err);
-      startDemoRoom(true);
+      setErrorMessage(err.message || "Could not create table. Check your internet and try again.");
     } finally {
       setLoading(false);
     }
@@ -393,7 +410,9 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
     setRoomCode(newCode);
     setIsRoomHost(true);
     setIsReady(true);
+    setRoomPlayers([mySelf]);
     setActiveTab("room");
+    setRoomUrl(newCode);
   };
 
   // ── Join Existing Room ───────────────────────────────────────────────────
@@ -406,26 +425,38 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
     setErrorMessage("");
 
     try {
-      await joinRoom(code, false);
+      await joinRoomWithRetry(code, false);
     } catch (err: any) {
       console.error(err);
-      if (code.startsWith("DEMO") || err.message.includes("timed out") || err.message.includes("Connection")) {
-        setIsDemoMode(true);
-        setIsDemoPrivate(true);
-        setRoomCode(code.startsWith("DEMO") ? code : "DEMO-INV");
-        setIsRoomHost(false);
-        setIsReady(false);
-        setRoomPlayers([
-          { id: "player_creator", name: "HostPlayer", isReady: true, isHost: true },
-          { id: playerId, name: playerName, isReady: false, isHost: false }
-        ]);
-        setActiveTab("room");
-      } else {
-        setErrorMessage(err.message);
-      }
+      setErrorMessage(
+        err.message ||
+          "Could not join this table. Ask your friend to keep the invite page open and try again."
+      );
     } finally {
       setLoading(false);
     }
+  };
+
+  const joinRoomWithRetry = async (
+    code: string,
+    isHost: boolean,
+    overrideId?: string,
+    overrideName?: string,
+    attempts = 3
+  ) => {
+    let lastError: Error | null = null;
+    for (let i = 0; i < attempts; i++) {
+      try {
+        await joinRoom(code, isHost, overrideId, overrideName);
+        return;
+      } catch (err: any) {
+        lastError = err;
+        if (i < attempts - 1) {
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+      }
+    }
+    throw lastError ?? new Error("Could not join the table.");
   };
 
   const joinRoom = async (code: string, isHost: boolean, overrideId?: string, overrideName?: string) => {
@@ -433,7 +464,7 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
     const snapshot = await withTimeout(get(roomRef));
 
     if (!snapshot.exists()) {
-      throw new Error("Room code not found.");
+      throw new Error("Table not found. Ask your friend to open their invite link first.");
     }
 
     const data = snapshot.val() as RoomData;
@@ -441,13 +472,35 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
       throw new Error("Game has already started.");
     }
 
+    const activeId = overrideId || playerId;
+    const activeName = overrideName || playerName;
+
+    // Host returning to their own table (e.g. after refresh)
+    if (data.creator === activeId) {
+      setRoomCode(code);
+      setIsRoomHost(true);
+      setIsReady(true);
+      setActiveTab("room");
+      setRoomUrl(code);
+      sessionStorage.removeItem("cb_invite_room");
+      return;
+    }
+
     const playersCount = data.players ? Object.keys(data.players).length : 0;
-    if (playersCount >= 4) {
+    if (playersCount >= 4 && !data.players?.[activeId]) {
       throw new Error("Room is already full (max 4 players).");
     }
 
-    const activeId = overrideId || playerId;
-    const activeName = overrideName || playerName;
+    // Already seated at this table
+    if (data.players?.[activeId]) {
+      setRoomCode(code);
+      setIsRoomHost(data.players[activeId].isHost);
+      setIsReady(data.players[activeId].isReady);
+      setActiveTab("room");
+      setRoomUrl(code);
+      sessionStorage.removeItem("cb_invite_room");
+      return;
+    }
 
     const mySelf: LobbyPlayer = {
       id: activeId,
@@ -456,17 +509,12 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
       isHost: isHost
     };
 
-    // Add to players list
     await withTimeout(set(ref(db, `rooms/${code}/players/${activeId}`), mySelf));
     setRoomCode(code);
     setIsRoomHost(isHost);
     setIsReady(false);
     setActiveTab("room");
-
-    // Clean query params so user doesn't join on subsequent refreshes
-    if (window.location.search.includes("room")) {
-      window.history.replaceState({}, document.title, window.location.pathname);
-    }
+    setRoomUrl(code);
     sessionStorage.removeItem("cb_invite_room");
   };
 
@@ -487,6 +535,7 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
       setIsReady(false);
       setRoomPlayers([]);
       setActiveTab("lobby");
+      clearRoomUrl();
       return;
     }
 
@@ -524,6 +573,8 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
     setIsReady(false);
     setRoomPlayers([]);
     setActiveTab("lobby");
+    clearRoomUrl();
+    sessionStorage.removeItem("cb_invite_room");
   };
 
   // ── Toggle Ready Status ──────────────────────────────────────────────────
@@ -815,16 +866,6 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
                 </button>
               </form>
 
-              <div className="text-center mt-1">
-                <button
-                  type="button"
-                  onClick={() => startDemoRoom(false)}
-                  className="text-xs text-slate-500 hover:text-slate-400 font-medium underline cursor-pointer"
-                >
-                  ⚠️ Firebase offline? Play in Demo Mode (Simulated Online)
-                </button>
-              </div>
-
               <button
                 onClick={onBackToMainMenu}
                 className="w-full mt-2 py-2.5 rounded-xl border border-slate-800 text-slate-500 hover:text-slate-400 font-bold text-sm transition-all cursor-pointer"
@@ -842,6 +883,14 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
               className="bg-slate-900/80 backdrop-blur-md p-6 rounded-2xl border border-blue-500/20 shadow-2xl shadow-blue-500/10 flex flex-col gap-4"
             >
               <div className="text-center">
+                <span className="text-xs text-slate-500 uppercase tracking-widest font-black">
+                  {isRoomHost ? "Your Private Table" : "Joined Table"}
+                </span>
+                <p className="text-slate-400 text-xs mt-1 mb-2">
+                  {isRoomHost
+                    ? "Share the invite link below — friends who open it join this same table."
+                    : "You and your friends are at the same table. Hit Ready when everyone is here."}
+                </p>
                 <span className="text-xs text-slate-500 uppercase tracking-widest font-black">
                   Table Invite Code
                 </span>

@@ -1,9 +1,8 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // NTFY.SH PUBLIC BROKER MULTIPLAYER ENGINE
 // ─────────────────────────────────────────────────────────────────────────────
-// This file replaces the Firebase SDK with a lightweight pub/sub sync engine
-// over the free public broker ntfy.sh. It connects host and guest devices 
-// instantly across mobile networks, Wi-Fi, and desktop browsers globally.
+// Lightweight pub/sub sync over ntfy.sh so host and guests share one table
+// across phones, desktops, and networks via invite links.
 
 const listeners: { path: string; callback: (snapshot: any) => void }[] = [];
 const localCache: Record<string, any> = {};
@@ -18,10 +17,22 @@ function getLocalPlayerId(): string {
   return localStorage.getItem("cb_player_id") || "unknown";
 }
 
+function mergeRoomData(existing: any, incoming: any): any {
+  if (!existing) return incoming;
+  if (!incoming) return existing;
+  return {
+    ...existing,
+    ...incoming,
+    players: {
+      ...(existing.players || {}),
+      ...(incoming.players || {}),
+    },
+  };
+}
+
 function connectStateSocket(roomCode: string) {
   if (stateSocket && stateSocket.readyState !== WebSocket.CLOSED) return;
 
-  // Guests connect with since=all to immediately load the last cached state
   stateSocket = new WebSocket(`wss://ntfy.sh/cb_room_${roomCode}_state/ws?since=all`);
   stateSocket.onmessage = (event) => {
     try {
@@ -30,19 +41,20 @@ function connectStateSocket(roomCode: string) {
         const payload = JSON.parse(data.message);
         if (payload.type === "roomState") {
           const myPlayerId = getLocalPlayerId();
-          const isHost = localCache["rooms"]?.[roomCode]?.creator === myPlayerId;
-          if (isHost) return; // Host ignores state broadcasts
+          // Skip our own broadcasts — already applied locally
+          if (payload.senderId === myPlayerId) return;
 
           if (!localCache["rooms"]) {
             localCache["rooms"] = {};
           }
-          localCache["rooms"][roomCode] = payload.roomData;
+          const existing = localCache["rooms"][roomCode];
+          localCache["rooms"][roomCode] = mergeRoomData(existing, payload.roomData);
 
           resolvePendingRequests(roomCode);
           triggerListeners(roomCode);
         }
       }
-    } catch (e) {
+    } catch {
       // Ignore parse errors
     }
   };
@@ -55,7 +67,6 @@ function connectStateSocket(roomCode: string) {
 function connectActionsSocket(roomCode: string) {
   if (actionsSocket && actionsSocket.readyState !== WebSocket.CLOSED) return;
 
-  // Host connects with since=all to sync background guest joins when returning from WhatsApp
   actionsSocket = new WebSocket(`wss://ntfy.sh/cb_room_${roomCode}_actions/ws?since=all`);
   actionsSocket.onmessage = (event) => {
     try {
@@ -66,7 +77,6 @@ function connectActionsSocket(roomCode: string) {
         const isHost = localCache["rooms"]?.[roomCode]?.creator === myPlayerId;
         if (!isHost) return;
 
-        // Deduplicate cached guest actions
         if (payload.actionId) {
           if (processedActionIds.has(payload.actionId)) return;
           processedActionIds.add(payload.actionId);
@@ -85,7 +95,7 @@ function connectActionsSocket(roomCode: string) {
           triggerListeners(roomCode);
         }
       }
-    } catch (e) {
+    } catch {
       // Ignore parse errors
     }
   };
@@ -101,10 +111,14 @@ function broadcastRoomState(roomCode: string) {
 
   fetch(`https://ntfy.sh/cb_room_${roomCode}_state`, {
     method: "POST",
-    body: JSON.stringify({ type: "roomState", roomData }),
+    body: JSON.stringify({
+      type: "roomState",
+      roomData,
+      senderId: getLocalPlayerId(),
+    }),
     headers: {
-      "Content-Type": "application/json"
-    }
+      "Content-Type": "application/json",
+    },
   }).catch((err) => console.error("Failed to broadcast state:", err));
 }
 
@@ -114,8 +128,8 @@ function sendActionToHost(roomCode: string, action: any) {
     method: "POST",
     body: JSON.stringify({ type: "clientAction", actionId, action }),
     headers: {
-      "Content-Type": "application/json"
-    }
+      "Content-Type": "application/json",
+    },
   }).catch((err) => console.error("Failed to send action:", err));
 }
 
@@ -124,8 +138,8 @@ function sendRequestToHost(roomCode: string) {
     method: "POST",
     body: JSON.stringify({ type: "request" }),
     headers: {
-      "Content-Type": "application/json"
-    }
+      "Content-Type": "application/json",
+    },
   }).catch((err) => console.error("Failed to send request:", err));
 }
 
@@ -206,6 +220,69 @@ function getSliceOfCache(path: string): any {
   return current === undefined ? null : current;
 }
 
+function isRoomHost(roomCode: string, pathParts: string[]): boolean {
+  const myPlayerId = getLocalPlayerId();
+  return pathParts.length === 2 || localCache["rooms"]?.[roomCode]?.creator === myPlayerId;
+}
+
+function isGuestSelfJoin(pathParts: string[], value: any): boolean {
+  const myPlayerId = getLocalPlayerId();
+  return (
+    pathParts.length === 4 &&
+    pathParts[2] === "players" &&
+    pathParts[3] === myPlayerId &&
+    !!value
+  );
+}
+
+async function guestJoinRoom(roomCode: string, playerData: any) {
+  connectStateSocket(roomCode);
+
+  let roomData = localCache["rooms"]?.[roomCode];
+  if (!roomData) {
+    sendRequestToHost(roomCode);
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(() => resolve(), 4000);
+      pendingRequests.push({
+        path: `rooms/${roomCode}`,
+        resolve: () => {
+          clearTimeout(timeout);
+          resolve();
+        },
+      });
+    });
+    roomData = localCache["rooms"]?.[roomCode];
+  }
+
+  if (!roomData) {
+    throw new Error("Table not found");
+  }
+
+  if (!roomData.players) roomData.players = {};
+  roomData.players[playerData.id] = playerData;
+
+  if (!localCache["rooms"]) localCache["rooms"] = {};
+  localCache["rooms"][roomCode] = roomData;
+
+  await fetch(`https://ntfy.sh/cb_room_${roomCode}_state`, {
+    method: "POST",
+    body: JSON.stringify({
+      type: "roomState",
+      roomData,
+      senderId: getLocalPlayerId(),
+    }),
+    headers: { "Content-Type": "application/json" },
+  });
+
+  sendActionToHost(roomCode, {
+    type: "set",
+    path: `rooms/${roomCode}/players/${playerData.id}`,
+    value: playerData,
+  });
+
+  triggerListeners(roomCode);
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // FIREBASE-COMPATIBLE API EXPORTS
 // ─────────────────────────────────────────────────────────────────────────────
@@ -220,8 +297,12 @@ export async function set(dbRef: { path: string }, value: any) {
   const roomCode = parts[1];
   const myPlayerId = getLocalPlayerId();
 
-  // If we are Host (creating room or writing room data directly)
-  const isHost = parts.length === 2 || localCache["rooms"]?.[roomCode]?.creator === myPlayerId;
+  if (isGuestSelfJoin(parts, value)) {
+    await guestJoinRoom(roomCode, value);
+    return;
+  }
+
+  const isHost = isRoomHost(roomCode, parts);
 
   if (isHost) {
     connectActionsSocket(roomCode);
@@ -238,9 +319,8 @@ export async function set(dbRef: { path: string }, value: any) {
 export async function update(dbRef: { path: string }, value: any) {
   const parts = dbRef.path.split("/");
   const roomCode = parts[1];
-  const myPlayerId = getLocalPlayerId();
 
-  const isHost = localCache["rooms"]?.[roomCode]?.creator === myPlayerId;
+  const isHost = localCache["rooms"]?.[roomCode]?.creator === getLocalPlayerId();
 
   if (isHost) {
     connectActionsSocket(roomCode);
@@ -268,31 +348,39 @@ export async function get(dbRef: { path: string }) {
 
   if (roomCode) {
     connectStateSocket(roomCode);
-    // Request state from host
     sendRequestToHost(roomCode);
+
+    const requestInterval = setInterval(() => sendRequestToHost(roomCode), 1500);
+
+    return new Promise<any>((resolve) => {
+      const timeout = setTimeout(() => {
+        clearInterval(requestInterval);
+        const idx = pendingRequests.findIndex((r) => r.path === dbRef.path && r.resolve === resolve);
+        if (idx !== -1) pendingRequests.splice(idx, 1);
+        resolve({
+          exists: () => false,
+          val: () => null,
+        });
+      }, 6000);
+
+      pendingRequests.push({
+        path: dbRef.path,
+        resolve: (val) => {
+          clearTimeout(timeout);
+          clearInterval(requestInterval);
+          resolve({
+            exists: () => val !== null && val !== undefined,
+            val: () => val,
+          });
+        },
+      });
+    });
   }
 
-  return new Promise<any>((resolve) => {
-    const timeout = setTimeout(() => {
-      const idx = pendingRequests.findIndex(r => r.path === dbRef.path && r.resolve === resolve);
-      if (idx !== -1) pendingRequests.splice(idx, 1);
-      resolve({
-        exists: () => false,
-        val: () => null,
-      });
-    }, 1800);
-
-    pendingRequests.push({
-      path: dbRef.path,
-      resolve: (val) => {
-        clearTimeout(timeout);
-        resolve({
-          exists: () => val !== null && val !== undefined,
-          val: () => val,
-        });
-      },
-    });
-  });
+  return {
+    exists: () => false,
+    val: () => null,
+  };
 }
 
 export function onValue(dbRef: { path: string }, callback: (snapshot: any) => void) {
@@ -354,7 +442,6 @@ export async function runTransaction(dbRef: { path: string }, transactionUpdate:
   }
 }
 
-// Keep the same room code generator
 export function generateRoomCode(): string {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let code = "";
