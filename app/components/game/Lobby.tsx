@@ -66,6 +66,8 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
   const [copied, setCopied] = useState(false);
   const [isDemoMode, setIsDemoMode] = useState(false);
   const [isDemoPrivate, setIsDemoPrivate] = useState(false);
+  const [inviteCode, setInviteCode] = useState<string | null>(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   // ── Load or Create Player Identity ───────────────────────────────────────
   useEffect(() => {
@@ -83,28 +85,43 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
       setNameSubmitted(true);
     }
 
-    // Auto-join if URL parameter exists
+    // Show invite modal if URL parameter exists
     const searchParams = new URLSearchParams(window.location.search);
     const roomParam = searchParams.get("room");
     if (roomParam) {
       const code = roomParam.trim().toUpperCase();
-      sessionStorage.setItem("cb_invite_room", code);
-      setInputCode(code);
-      
-      if (savedName) {
-        setLoading(true);
-        joinRoomWithRetry(code, false, savedId, savedName)
-          .catch((err) => {
-            console.error("Auto-join failed:", err);
-            setErrorMessage(
-              err.message ||
-                "Could not join this table. Ask your friend to keep the invite page open and try again."
-            );
-          })
-          .finally(() => setLoading(false));
-      }
+      setInviteCode(code);
+      setShowInviteModal(true);
     }
   }, []);
+
+  const handleAcceptInvite = () => {
+    if (!inviteCode) return;
+    setShowInviteModal(false);
+    sessionStorage.setItem("cb_invite_room", inviteCode);
+    setInputCode(inviteCode);
+    
+    if (nameSubmitted && playerName.trim()) {
+      setLoading(true);
+      joinRoomWithRetry(inviteCode, false, playerId, playerName.trim())
+        .catch((err) => {
+          console.error("Accept invite failed:", err);
+          setErrorMessage(
+            err.message ||
+              "Could not join this table. Ask your friend to keep the invite page open and try again."
+          );
+        })
+        .finally(() => setLoading(false));
+    }
+  };
+
+  const handleIgnoreInvite = () => {
+    setShowInviteModal(false);
+    setInviteCode(null);
+    sessionStorage.removeItem("cb_invite_room");
+    clearRoomUrl();
+    onBackToMainMenu();
+  };
 
   const handleNameSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -1043,6 +1060,46 @@ export const Lobby = ({ onGameStart, onBackToMainMenu }: LobbyProps) => {
           )}
         </AnimatePresence>
       </div>
+
+      {/* INVITATION MODAL */}
+      {showInviteModal && inviteCode && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm"
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            className="w-full max-w-sm bg-[#061c48] border border-blue-500/30 p-6 rounded-2xl shadow-2xl flex flex-col gap-6 text-center"
+          >
+            <div className="flex flex-col gap-2">
+              <div className="text-4xl">📩</div>
+              <h2 className="text-2xl font-black text-white">Join Table Invite</h2>
+              <p className="text-blue-300 text-sm">
+                Your friend has invited you to play a match of Plus Minus!
+              </p>
+              <div className="bg-blue-500/10 border border-blue-400/20 py-2 rounded-xl text-blue-400 font-bold text-sm tracking-wider mt-2">
+                ROOM CODE: {inviteCode}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-3">
+              <button
+                onClick={handleAcceptInvite}
+                className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 via-teal-500 to-emerald-600 hover:brightness-110 text-white font-black text-base shadow-lg shadow-emerald-500/20 hover:scale-[1.02] active:scale-95 transition-all cursor-pointer"
+              >
+                ACCEPT THE INVITE
+              </button>
+              
+              <button
+                onClick={handleIgnoreInvite}
+                className="text-xs text-slate-400 font-medium hover:underline cursor-pointer py-1"
+              >
+                Ignore the invite & play
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };

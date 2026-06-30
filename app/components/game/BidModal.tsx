@@ -52,11 +52,7 @@ export const BidModal = ({
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 220, damping: 18 }}
-        className="w-full bg-white shadow-2xl shadow-blue-400 scrollbar-hide max-w-md rounded-2xl p-6 flex flex-col gap-5 max-h-[90vh] overflow-y-auto"
-        style={{
-          background: "",
-          border: "1px solid rgba(91,219,111,0.35)",
-        }}
+        className="w-full max-w-sm bg-white border border-blue-100 shadow-2xl shadow-blue-500/20 rounded-2xl p-5 flex flex-col gap-4 max-h-[85vh] overflow-y-auto m-auto"
       >
         <div className="text-center ">
           <div className="text-3xl mb-1">🃏</div>
@@ -70,60 +66,49 @@ export const BidModal = ({
           </div>
         </div>
 
-        <div className="flex flex-col gap-1.5">
-          <div className="text-gray-500 text-xs uppercase tracking-wider mb-1">
+        <div className="flex flex-col gap-2">
+          <div className="text-gray-500 text-xs uppercase tracking-wider mb-1 text-center font-bold">
             Bidding ({placedBids.length} / {players.length} done)
           </div>
-          {players.map((p, idx) => {
-            const isDone = p.bid !== null;
-            const isCurrent = idx === biddingIndex;
-            return (
-              <div
-                key={p.id}
-                className="flex items-center justify-between px-3 py-1.5 rounded-lg"
-                style={{
-                  background: isCurrent ? "rgba(59,130,245,0.15)" : "#e9ecef",
-                  border: isCurrent
-                    ? "1px solid rgba(59,130,245,0.15)"
-                    : "1px solid transparent",
-                }}
-              >
-                <div className="flex items-center gap-2">
-                  <Avatar id={p.id} name={p.name} size={28} />
-                  <span className="text-[#0353a4]  text-sm font-semibold">
+          <div className="grid grid-cols-4 gap-2">
+            {players.map((p, idx) => {
+              const isDone = p.bid !== null;
+              const isCurrent = idx === biddingIndex;
+              return (
+                <div
+                  key={p.id}
+                  className="flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all"
+                  style={{
+                    background: isCurrent ? "rgba(59,130,245,0.12)" : "#f8f9fa",
+                    borderColor: isCurrent ? "#00a6fb" : "rgba(0,0,0,0.05)",
+                  }}
+                >
+                  <Avatar id={p.id} name={p.name} size={32} />
+                  <span className="text-[#0353a4] text-[10px] font-bold mt-1 truncate w-full max-w-[64px]">
                     {p.name}
                   </span>
                   {isCurrent && !isDone && (
-                    <span className="text-[#00a6fb] text-xs animate-pulse">
-                      ● now
+                    <span className="text-[#00a6fb] text-[8px] animate-pulse font-black uppercase mt-0.5">
+                      Bidding
                     </span>
                   )}
+                  {isDone ? (
+                    <span className="text-[#ef8354] font-black text-sm mt-1">
+                      {p.bid}
+                    </span>
+                  ) : isCurrent && !p.isHuman ? (
+                    <div className="flex items-center gap-0.5 mt-1.5 h-3">
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#00a6fb] animate-bounce" style={{ animationDelay: "0ms" }} />
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#00a6fb] animate-bounce" style={{ animationDelay: "150ms" }} />
+                      <div className="w-1.5 h-1.5 rounded-full bg-[#00a6fb] animate-bounce" style={{ animationDelay: "300ms" }} />
+                    </div>
+                  ) : !isCurrent ? (
+                    <span className="text-gray-400 text-xs mt-1">—</span>
+                  ) : null}
                 </div>
-                {isDone ? (
-                  <span className="text-[#ef8354] font-black text-base">
-                    {p.bid}
-                  </span>
-                ) : isCurrent && !p.isHuman ? (
-                  <div className="flex items-center gap-1">
-                    <div
-                      className="w-1.5 h-1.5 rounded-full bg-[#00a6fb] animate-bounce"
-                      style={{ animationDelay: "0ms" }}
-                    />
-                    <div
-                      className="w-1.5 h-1.5 rounded-full bg-[#00a6fb]  animate-bounce"
-                      style={{ animationDelay: "150ms" }}
-                    />
-                    <div
-                      className="w-1.5 h-1.5 rounded-full bg-[#00a6fb]  animate-bounce"
-                      style={{ animationDelay: "300ms" }}
-                    />
-                  </div>
-                ) : (
-                  <span className="text-gray-600 text-sm">—</span>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
 
         {isMyTurn && myHand.length > 0 && (biddingIndex === 0 || (biddingIndex === 1 && !trumpSuit)) ? (
