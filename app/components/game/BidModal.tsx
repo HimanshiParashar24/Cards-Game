@@ -29,7 +29,7 @@ export const BidModal = ({
 
   useEffect(() => {
     if (selectedTrump) {
-      setSelectedBid(5);
+      setSelectedBid((prev) => (prev < 5 ? 5 : prev));
     }
   }, [selectedTrump]);
 
@@ -52,24 +52,26 @@ export const BidModal = ({
         initial={{ scale: 0.9, opacity: 0, y: 20 }}
         animate={{ scale: 1, opacity: 1, y: 0 }}
         transition={{ type: "spring", stiffness: 220, damping: 18 }}
-        className="w-full max-w-sm bg-white border border-blue-100 shadow-2xl shadow-blue-500/20 rounded-2xl p-5 flex flex-col gap-4 max-h-[85vh] overflow-y-auto m-auto"
+        className="w-full max-w-md bg-slate-900/90 backdrop-blur-md border border-blue-500/20 shadow-2xl shadow-blue-500/10 rounded-2xl p-6 flex flex-col gap-5 max-h-[85vh] overflow-y-auto m-auto text-white"
       >
-        <div className="text-center ">
+        {/* Header */}
+        <div className="text-center">
           <div className="text-3xl mb-1">🃏</div>
-          <div className="text-[#023e7d] font-black  text-xl">
-            Place Your Bid !
-          </div>
-          <div className="text-[#00a6fb] text-sm mt-1">
+          <h2 className="text-white font-black text-xl tracking-wide">
+            Place Your Bid!
+          </h2>
+          <p className="text-blue-300 text-sm mt-1">
             {isMyTurn
               ? "How many tricks will you win this round?"
               : `${currentBidder.name} is bidding...`}
-          </div>
+          </p>
         </div>
 
+        {/* Players horizontal bidding progress list */}
         <div className="flex flex-col gap-2">
-          <div className="text-gray-500 text-xs uppercase tracking-wider mb-1 text-center font-bold">
+          <span className="text-slate-500 text-xs font-black uppercase tracking-widest text-center">
             Bidding ({placedBids.length} / {players.length} done)
-          </div>
+          </span>
           <div className="grid grid-cols-4 gap-2">
             {players.map((p, idx) => {
               const isDone = p.bid !== null;
@@ -79,31 +81,40 @@ export const BidModal = ({
                   key={p.id}
                   className="flex flex-col items-center justify-center p-2 rounded-xl border text-center transition-all"
                   style={{
-                    background: isCurrent ? "rgba(59,130,245,0.12)" : "#f8f9fa",
-                    borderColor: isCurrent ? "#00a6fb" : "rgba(0,0,0,0.05)",
+                    background: isCurrent ? "rgba(59,130,245,0.15)" : "rgba(30,41,59,0.5)",
+                    borderColor: isCurrent ? "#3b82f6" : "rgba(255,255,255,0.05)",
                   }}
                 >
-                  <Avatar id={p.id} name={p.name} size={32} />
-                  <span className="text-[#0353a4] text-[10px] font-bold mt-1 truncate w-full max-w-[64px]">
+                  <Avatar id={p.id} name={p.name} size={30} />
+                  <span className="text-slate-300 text-[10px] font-bold mt-1 truncate w-full max-w-[64px]">
                     {p.name}
                   </span>
                   {isCurrent && !isDone && (
-                    <span className="text-[#00a6fb] text-[8px] animate-pulse font-black uppercase mt-0.5">
+                    <span className="text-blue-400 text-[8px] animate-pulse font-black uppercase mt-0.5">
                       Bidding
                     </span>
                   )}
                   {isDone ? (
-                    <span className="text-[#ef8354] font-black text-sm mt-1">
+                    <span className="text-yellow-500 font-black text-sm mt-0.5">
                       {p.bid}
                     </span>
                   ) : isCurrent && !p.isHuman ? (
                     <div className="flex items-center gap-0.5 mt-1.5 h-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#00a6fb] animate-bounce" style={{ animationDelay: "0ms" }} />
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#00a6fb] animate-bounce" style={{ animationDelay: "150ms" }} />
-                      <div className="w-1.5 h-1.5 rounded-full bg-[#00a6fb] animate-bounce" style={{ animationDelay: "300ms" }} />
+                      <div
+                        className="w-1 h-1 rounded-full bg-blue-400 animate-bounce"
+                        style={{ animationDelay: "0ms" }}
+                      />
+                      <div
+                        className="w-1 h-1 rounded-full bg-blue-400 animate-bounce"
+                        style={{ animationDelay: "150ms" }}
+                      />
+                      <div
+                        className="w-1 h-1 rounded-full bg-blue-400 animate-bounce"
+                        style={{ animationDelay: "300ms" }}
+                      />
                     </div>
                   ) : !isCurrent ? (
-                    <span className="text-gray-400 text-xs mt-1">—</span>
+                    <span className="text-slate-500 text-xs mt-0.5">—</span>
                   ) : null}
                 </div>
               );
@@ -111,17 +122,14 @@ export const BidModal = ({
           </div>
         </div>
 
+        {/* Card picker / Active trump banner */}
         {isMyTurn && myHand.length > 0 && (biddingIndex === 0 || (biddingIndex === 1 && !trumpSuit)) ? (
           <div className="flex flex-col gap-2">
-            <div className="text-[#0353a4] font-bold text-xs uppercase tracking-wider">
+            <span className="text-slate-300 font-bold text-xs uppercase tracking-wider text-center">
               Select a Trump Card
-            </div>
+            </span>
             <div
-              className="flex flex-wrap justify-center gap-1 scrollbar-hide scroll-slick max-h-32 overflow-y-auto p-2 rounded-xl"
-              style={{
-                background: "#e9ecef",
-                border: "1px solid rgba(255,255,255,0.06)",
-              }}
+              className="flex flex-wrap justify-center gap-1.5 scrollbar-hide scroll-slick max-h-32 overflow-y-auto p-2 rounded-xl border border-slate-700/50 bg-slate-800/40"
             >
               {myHand.map((card) => (
                 <motion.div
@@ -153,7 +161,7 @@ export const BidModal = ({
               ))}
             </div>
 
-            <p className="text-[#c9184a] text-[10px] text-center font-bold">
+            <p className="text-rose-400 text-[10px] text-center font-bold">
               {selectedTrump
                 ? `Selected Trump: ${selectedTrump.toUpperCase()}`
                 : "Click on any card to select the trump"}
@@ -161,31 +169,40 @@ export const BidModal = ({
           </div>
         ) : (
           isMyTurn && trumpSuit && (
-            <div className="flex flex-col gap-2 text-center p-3 rounded-xl border"
-              style={{
-                background: "rgba(59,130,245,0.08)",
-                borderColor: "rgba(59,130,245,0.15)",
-              }}
+            <div
+              className="flex flex-col gap-1.5 text-center p-3 rounded-xl border border-blue-500/20 bg-slate-800/60"
             >
-              <div className="text-xs uppercase tracking-wider text-[#0353a4] font-bold">
+              <span className="text-xs uppercase tracking-wider text-blue-400 font-bold">
                 Active Trump Suit
-              </div>
-              <div 
+              </span>
+              <div
                 className="text-lg font-black"
-                style={{ color: trumpSuit === "hearts" || trumpSuit === "diamonds" ? "#c9184a" : "#023e7d" }}
+                style={{
+                  color:
+                    trumpSuit === "hearts" || trumpSuit === "diamonds"
+                      ? "#f43f5e"
+                      : "#60a5fa",
+                }}
               >
-                {trumpSuit === "hearts" ? "♥ HEARTS" : trumpSuit === "diamonds" ? "♦ DIAMONDS" : trumpSuit === "spades" ? "♠ SPADES" : "♣ CLUBS"}
+                {trumpSuit === "hearts"
+                  ? "♥ HEARTS"
+                  : trumpSuit === "diamonds"
+                  ? "♦ DIAMONDS"
+                  : trumpSuit === "spades"
+                  ? "♠ SPADES"
+                  : "♣ CLUBS"}
               </div>
             </div>
           )
         )}
 
+        {/* Bid selector & Submit button */}
         {isMyTurn ? (
           <>
             <div className="flex flex-col gap-2">
-              <div className="text-[#0353a4] text-xs font-bold tracking-wider">
-                YOUR BID <span className="text-[#00a6fb] ">(min 1 - max 8)</span>
-              </div>
+              <span className="text-slate-300 text-xs font-bold tracking-wider">
+                YOUR BID <span className="text-blue-400">(min 1 - max 8)</span>
+              </span>
               <div className="grid grid-cols-4 gap-2">
                 {BID_OPTIONS.map((b) => (
                   <button
@@ -198,25 +215,28 @@ export const BidModal = ({
                     }}
                     className="py-3 rounded-xl font-black text-lg transition-all active:scale-95"
                     style={{
-                      opacity: mustBidFiveOrMore && b < 5 ? 0.4 : 1,
-                      cursor:
-                        mustBidFiveOrMore && b < 5 ? "not-allowed" : "pointer",
-                      background:
-                        selectedBid === b ? "rgba(59,130,245,0.15)" : "#e9ecef",
-                      border:
-                        selectedBid === b
-                          ? "2px solid #00a6fb"
-                          : "1px solid rgba(255,255,255,0.12)",
-                      color: selectedBid === b ? "#00a6fb" : "#4a4e69",
+                      opacity: mustBidFiveOrMore && b < 5 ? 0.25 : 1,
+                      cursor: mustBidFiveOrMore && b < 5 ? "not-allowed" : "pointer",
+                      background: selectedBid === b ? "rgba(59,130,245,0.25)" : "rgba(30,41,59,0.6)",
+                      border: selectedBid === b ? "2px solid #3b82f6" : "1px solid rgba(255,255,255,0.06)",
+                      color: selectedBid === b ? "#3b82f6" : "#e2e8f0",
                     }}
                   >
                     {b}
                   </button>
                 ))}
               </div>
-              <div className="text-center text-gray-400 text-xs mt-1">
-                {trumpSuit 
-                  ? `${trumpSuit === "hearts" ? "♥ HEARTS" : trumpSuit === "diamonds" ? "♦ DIAMONDS" : trumpSuit === "spades" ? "♠ SPADES" : "♣ CLUBS"} are trump. Higher bid = higher risk & reward.`
+              <div className="text-center text-slate-500 text-[10px] mt-1 font-medium">
+                {trumpSuit
+                  ? `${
+                      trumpSuit === "hearts"
+                        ? "♥ HEARTS"
+                        : trumpSuit === "diamonds"
+                        ? "♦ DIAMONDS"
+                        : trumpSuit === "spades"
+                        ? "♠ SPADES"
+                        : "♣ CLUBS"
+                    } are trump. Higher bid = higher risk & reward.`
                   : "♠ Spades are default trump. Higher bid = higher risk & reward."}
               </div>
             </div>
@@ -227,8 +247,8 @@ export const BidModal = ({
               }}
               className="w-full py-3.5 rounded-xl font-black text-white text-base transition-all hover:brightness-110 cursor-pointer active:scale-95"
               style={{
-                background: "linear-gradient(135deg,#00a6fb,#0353a4)",
-                boxShadow: "0 4px 18px rgba(34,197,94,0.35)",
+                background: "linear-gradient(135deg,#3b82f6,#1d4ed8)",
+                boxShadow: "0 4px 18px rgba(59,130,246,0.3)",
               }}
             >
               Bid {selectedBid} Trick{selectedBid !== 1 ? "s" : ""}
