@@ -105,6 +105,7 @@ export default function CallBreakerGame({
               selectedTrump={selectedTrump}
               setSelectedTrump={setSelectedTrump}
               playerId={multiplayerOpts?.playerId || you.id}
+              trumpSuit={game.trumpSuit}
             />
           )}
       </AnimatePresence>

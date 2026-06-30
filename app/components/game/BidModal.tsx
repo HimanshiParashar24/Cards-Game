@@ -12,6 +12,7 @@ interface BidModalProps {
   selectedTrump: Suit | null;
   setSelectedTrump: React.Dispatch<React.SetStateAction<Suit | null>>;
   playerId: string;
+  trumpSuit: Suit | null;
 }
 
 export const BidModal = ({
@@ -21,6 +22,7 @@ export const BidModal = ({
   selectedTrump,
   setSelectedTrump,
   playerId,
+  trumpSuit,
 }: BidModalProps) => {
   const [selectedBid, setSelectedBid] = useState<number>(selectedTrump ? 5 : 1);
   const currentBidder = players[biddingIndex];
@@ -124,7 +126,7 @@ export const BidModal = ({
           })}
         </div>
 
-        {isMyTurn && myHand.length > 0 && (
+        {isMyTurn && myHand.length > 0 && (biddingIndex === 0 || (biddingIndex === 1 && !trumpSuit)) ? (
           <div className="flex flex-col gap-2">
             <div className="text-[#0353a4] font-bold text-xs uppercase tracking-wider">
               Select a Trump Card
@@ -153,7 +155,14 @@ export const BidModal = ({
                     card={card}
                     size="sm"
                     selected={selectedTrump === card.suit}
-                    onClick={() => setSelectedTrump(card.suit)}
+                    onClick={() => {
+                      if (selectedTrump === card.suit) {
+                        setSelectedTrump(null);
+                        setSelectedBid(1);
+                      } else {
+                        setSelectedTrump(card.suit);
+                      }
+                    }}
                   />
                 </motion.div>
               ))}
@@ -165,6 +174,25 @@ export const BidModal = ({
                 : "Click on any card to select the trump"}
             </p>
           </div>
+        ) : (
+          isMyTurn && trumpSuit && (
+            <div className="flex flex-col gap-2 text-center p-3 rounded-xl border"
+              style={{
+                background: "rgba(59,130,245,0.08)",
+                borderColor: "rgba(59,130,245,0.15)",
+              }}
+            >
+              <div className="text-xs uppercase tracking-wider text-[#0353a4] font-bold">
+                Active Trump Suit
+              </div>
+              <div 
+                className="text-lg font-black"
+                style={{ color: trumpSuit === "hearts" || trumpSuit === "diamonds" ? "#c9184a" : "#023e7d" }}
+              >
+                {trumpSuit === "hearts" ? "♥ HEARTS" : trumpSuit === "diamonds" ? "♦ DIAMONDS" : trumpSuit === "spades" ? "♠ SPADES" : "♣ CLUBS"}
+              </div>
+            </div>
+          )
         )}
 
         {isMyTurn ? (
@@ -202,7 +230,9 @@ export const BidModal = ({
                 ))}
               </div>
               <div className="text-center text-gray-400 text-xs mt-1">
-                ♠ Spades are trump. Higher bid = higher risk & reward.
+                {trumpSuit 
+                  ? `${trumpSuit === "hearts" ? "♥ HEARTS" : trumpSuit === "diamonds" ? "♦ DIAMONDS" : trumpSuit === "spades" ? "♠ SPADES" : "♣ CLUBS"} are trump. Higher bid = higher risk & reward.`
+                  : "♠ Spades are default trump. Higher bid = higher risk & reward."}
               </div>
             </div>
             <button

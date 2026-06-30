@@ -122,7 +122,7 @@ export function createInitialState(): GameState {
     phase: "bidding",
     currentRound: 1,
     totalRounds: TOTAL_ROUNDS,
-    trumpSuit: "spades",
+    trumpSuit: null,
     players,
     currentTurnIndex: 0,
     currentTrick: [],

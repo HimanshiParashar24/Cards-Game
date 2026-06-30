@@ -42,7 +42,7 @@ function createMultiplayerPlaceholderState(initialPlayers: any[]): GameState {
     phase: "bidding",
     currentRound: 1,
     totalRounds: 5,
-    trumpSuit: "spades",
+    trumpSuit: null,
     players,
     currentTurnIndex: 0,
     currentTrick: [],
@@ -212,9 +212,14 @@ export function useCallBreakerGame(multiplayerOpts?: {
         const nextBiddingIndex = prev.biddingIndex + 1;
         const allBid = nextBiddingIndex >= prev.players.length;
 
+        let resolvedTrump = finalTrump ?? prev.trumpSuit;
+        if (allBid && !resolvedTrump) {
+          resolvedTrump = "spades";
+        }
+
         return {
           ...prev,
-          trumpSuit: finalTrump ?? prev.trumpSuit,
+          trumpSuit: resolvedTrump,
           players: updatedPlayers,
           biddingIndex: nextBiddingIndex,
           phase: allBid ? "playing" : "bidding",
@@ -487,7 +492,7 @@ export function useCallBreakerGame(multiplayerOpts?: {
           phase: "bidding",
           currentRound: 1,
           totalRounds: game.totalRounds,
-          trumpSuit: "spades",
+          trumpSuit: null,
           players: resetPlayers,
           currentTurnIndex: 0,
           currentTrick: [],
